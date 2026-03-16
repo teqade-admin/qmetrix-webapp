@@ -1,0 +1,132 @@
+{
+  "name": "Deliverable",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "riba_stage": {
+      "type": "string",
+      "enum": [
+        "stage_0",
+        "stage_1",
+        "stage_2",
+        "stage_3",
+        "stage_4",
+        "stage_5",
+        "stage_6",
+        "stage_7"
+      ]
+    },
+    "deliverable_type": {
+      "type": "string",
+      "enum": [
+        "cost_plan",
+        "boq",
+        "feasibility_report",
+        "procurement_strategy",
+        "tender_report",
+        "cost_report",
+        "final_account",
+        "specification",
+        "other"
+      ]
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "submitted_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "originator": {
+      "type": "string"
+    },
+    "checker": {
+      "type": "string"
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "authoriser": {
+      "type": "string"
+    },
+    "originator_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed"
+      ],
+      "default": "pending"
+    },
+    "checker_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "reviewer_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "authoriser_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "under_review",
+        "approved",
+        "rejected",
+        "issued"
+      ],
+      "default": "not_started"
+    },
+    "file_url": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "checklist_items": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "comments": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "project_name",
+    "riba_stage"
+  ]
+}

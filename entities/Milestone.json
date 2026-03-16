@@ -1,0 +1,69 @@
+{
+  "name": "Milestone",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "kick_off",
+        "feasibility",
+        "design",
+        "pre_construction",
+        "construction",
+        "post_completion",
+        "deliverable"
+      ]
+    },
+    "riba_stage": {
+      "type": "string",
+      "enum": [
+        "stage_0",
+        "stage_1",
+        "stage_2",
+        "stage_3",
+        "stage_4",
+        "stage_5",
+        "stage_6",
+        "stage_7"
+      ]
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "overdue"
+      ],
+      "default": "pending"
+    },
+    "assigned_to": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "project_name",
+    "phase"
+  ]
+}

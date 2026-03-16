@@ -1,0 +1,68 @@
+{
+  "name": "Timesheet",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string"
+    },
+    "employee_name": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "hours": {
+      "type": "number"
+    },
+    "task_description": {
+      "type": "string"
+    },
+    "riba_stage": {
+      "type": "string",
+      "enum": [
+        "pre_concept",
+        "concept",
+        "schematic",
+        "detailed_design",
+        "boq_preparation",
+        "construction",
+        "post_completion",
+        "general"
+      ]
+    },
+    "billable": {
+      "type": "boolean",
+      "default": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected"
+      ],
+      "default": "draft"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "week_ending": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "employee_name",
+    "project_name",
+    "date",
+    "hours"
+  ]
+}

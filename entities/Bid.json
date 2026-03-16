@@ -1,0 +1,147 @@
+{
+  "name": "Bid",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "client_name": {
+      "type": "string"
+    },
+    "client_contact": {
+      "type": "string"
+    },
+    "client_email": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "sector": {
+      "type": "string",
+      "enum": [
+        "residential",
+        "commercial",
+        "infrastructure",
+        "healthcare",
+        "education",
+        "industrial",
+        "mixed_use",
+        "government",
+        "other"
+      ]
+    },
+    "estimated_value": {
+      "type": "number"
+    },
+    "fee_proposal": {
+      "type": "number"
+    },
+    "submission_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "in_progress",
+        "submitted",
+        "won",
+        "lost",
+        "withdrawn"
+      ],
+      "default": "draft"
+    },
+    "probability": {
+      "type": "number"
+    },
+    "lead_consultant": {
+      "type": "string"
+    },
+    "client_onboarding_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_review",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "stage_breakdown": {
+      "type": "object",
+      "properties": {
+        "pre_concept": {
+          "type": "object",
+          "properties": {
+            "hours": {
+              "type": "number"
+            },
+            "fee": {
+              "type": "number"
+            }
+          }
+        },
+        "concept": {
+          "type": "object",
+          "properties": {
+            "hours": {
+              "type": "number"
+            },
+            "fee": {
+              "type": "number"
+            }
+          }
+        },
+        "schematic": {
+          "type": "object",
+          "properties": {
+            "hours": {
+              "type": "number"
+            },
+            "fee": {
+              "type": "number"
+            }
+          }
+        },
+        "detailed_design": {
+          "type": "object",
+          "properties": {
+            "hours": {
+              "type": "number"
+            },
+            "fee": {
+              "type": "number"
+            }
+          }
+        },
+        "boq_preparation": {
+          "type": "object",
+          "properties": {
+            "hours": {
+              "type": "number"
+            },
+            "fee": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "resource_forecast": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "client_name",
+    "status"
+  ]
+}

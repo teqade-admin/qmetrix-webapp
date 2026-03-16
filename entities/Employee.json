@@ -1,0 +1,126 @@
+{
+  "name": "Employee",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "cost_management",
+        "quantity_surveying",
+        "project_management",
+        "commercial",
+        "finance",
+        "administration",
+        "executive"
+      ]
+    },
+    "job_title": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "director",
+        "associate_director",
+        "senior_consultant",
+        "consultant",
+        "junior_consultant",
+        "analyst",
+        "administrator"
+      ]
+    },
+    "app_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "hr",
+        "qs",
+        "billing",
+        "project_manager",
+        "finance",
+        "reviewer",
+        "approver"
+      ],
+      "default": "qs"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Charge-out rate \u00a3/hr"
+    },
+    "cost_rate": {
+      "type": "number",
+      "description": "Internal cost rate \u00a3/hr"
+    },
+    "salary": {
+      "type": "number",
+      "description": "Annual salary"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "on_leave",
+        "terminated"
+      ],
+      "default": "active"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "onboarding_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed"
+      ],
+      "default": "not_started"
+    },
+    "kpi_score": {
+      "type": "number",
+      "description": "Latest KPI score 0-100"
+    },
+    "performance_rating": {
+      "type": "string",
+      "enum": [
+        "exceptional",
+        "exceeds_expectations",
+        "meets_expectations",
+        "needs_improvement",
+        "unsatisfactory"
+      ]
+    },
+    "manager_name": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "full_name",
+    "email",
+    "department",
+    "role"
+  ]
+}

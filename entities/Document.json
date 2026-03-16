@@ -1,0 +1,62 @@
+{
+  "name": "Document",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "contract",
+        "proposal",
+        "report",
+        "drawing",
+        "specification",
+        "correspondence",
+        "financial",
+        "hr",
+        "bid",
+        "other"
+      ]
+    },
+    "folder": {
+      "type": "string",
+      "description": "Folder path e.g. Projects/ProjectName"
+    },
+    "file_url": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "uploaded_by": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "description": {
+      "type": "string"
+    },
+    "access_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "title",
+    "category"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "name": "ResourceAllocation",
+  "type": "object",
+  "properties": {
+    "employee_name": {
+      "type": "string"
+    },
+    "employee_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "role_on_project": {
+      "type": "string"
+    },
+    "allocation_percent": {
+      "type": "number"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "hours_budgeted": {
+      "type": "number"
+    },
+    "hours_spent": {
+      "type": "number"
+    },
+    "riba_stage": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "active",
+        "completed"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "employee_name",
+    "project_name",
+    "allocation_percent"
+  ]
+}

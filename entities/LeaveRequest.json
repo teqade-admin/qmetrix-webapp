@@ -1,0 +1,62 @@
+{
+  "name": "LeaveRequest",
+  "type": "object",
+  "properties": {
+    "employee_id": {
+      "type": "string"
+    },
+    "employee_name": {
+      "type": "string"
+    },
+    "leave_type": {
+      "type": "string",
+      "enum": [
+        "annual",
+        "sick",
+        "maternity",
+        "paternity",
+        "unpaid",
+        "compassionate",
+        "study",
+        "other"
+      ],
+      "default": "annual"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "days_requested": {
+      "type": "number"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "employee_name",
+    "leave_type",
+    "start_date",
+    "end_date"
+  ]
+}

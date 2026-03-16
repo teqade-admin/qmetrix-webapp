@@ -1,0 +1,163 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "project_code": {
+      "type": "string"
+    },
+    "client_name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "sector": {
+      "type": "string",
+      "enum": [
+        "residential",
+        "commercial",
+        "infrastructure",
+        "healthcare",
+        "education",
+        "industrial",
+        "mixed_use",
+        "government",
+        "other"
+      ]
+    },
+    "project_value": {
+      "type": "number"
+    },
+    "fee_agreed": {
+      "type": "number"
+    },
+    "fee_invoiced": {
+      "type": "number"
+    },
+    "cost_to_date": {
+      "type": "number"
+    },
+    "earned_value": {
+      "type": "number"
+    },
+    "riba_stage": {
+      "type": "string",
+      "enum": [
+        "stage_0",
+        "stage_1",
+        "stage_2",
+        "stage_3",
+        "stage_4",
+        "stage_5",
+        "stage_6",
+        "stage_7"
+      ],
+      "default": "stage_0"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "kick_off",
+        "feasibility",
+        "design",
+        "pre_construction",
+        "construction",
+        "post_completion",
+        "closed"
+      ],
+      "default": "kick_off"
+    },
+    "baseline_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Planned start date (baseline)"
+    },
+    "baseline_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Planned end date (baseline)"
+    },
+    "actual_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Actual start date"
+    },
+    "actual_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Actual completion date"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "project_manager": {
+      "type": "string"
+    },
+    "bid_id": {
+      "type": "string"
+    },
+    "progress_percent": {
+      "type": "number"
+    },
+    "budgeted_hours": {
+      "type": "number"
+    },
+    "actual_hours": {
+      "type": "number"
+    },
+    "work_sections": {
+      "type": "array",
+      "description": "Custom work section rows for progress tracking",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "progress_percent": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_progress",
+              "completed",
+              "on_hold"
+            ]
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "name",
+    "client_name",
+    "status"
+  ]
+}

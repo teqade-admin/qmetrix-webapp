@@ -1,0 +1,71 @@
+{
+  "name": "Invoice",
+  "type": "object",
+  "properties": {
+    "invoice_number": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "client_name": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "tax_amount": {
+      "type": "number"
+    },
+    "total_amount": {
+      "type": "number"
+    },
+    "issue_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "sent",
+        "paid",
+        "overdue",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "description": {
+      "type": "string"
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "riba_stage": {
+      "type": "string"
+    },
+    "billing_hours": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "invoice_number",
+    "project_name",
+    "client_name",
+    "amount"
+  ]
+}
