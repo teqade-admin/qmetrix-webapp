@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Search, Pencil, Trash2, Rocket } from "lucide-react";
 import FeeCalculator from "@/components/bids/FeeCalculator";
@@ -30,6 +29,11 @@ const SECTORS = ["residential", "commercial", "infrastructure", "healthcare", "e
 const STATUSES = ["draft", "in_progress", "submitted", "won", "lost", "withdrawn"];
 
 const defaultForm = { title: "", client_name: "", client_contact: "", client_email: "", description: "", sector: "", estimated_value: "", fee_proposal: "", submission_date: "", status: "draft", probability: "", lead_consultant: "", client_onboarding_status: "pending", notes: "", stage_breakdown: {} };
+
+const sanitizeBidUpdatePayload = (payload) => {
+  const { id, created_at, updated_at, created_date, updated_date, ...rest } = payload;
+  return rest;
+};
 
 export default function BidManagement() {
   const { currency } = useCurrency();
@@ -52,9 +56,10 @@ export default function BidManagement() {
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Bid.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDialogOpen(false); setEditingBid(null); } });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Bid.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDeleteId(null); } });
   const kickOffMut = useMutation({
-    mutationFn: async ({ bidId, projectData }) => {
+    mutationFn: async ({ bidId, projectData, bidUpdateData }) => {
       const project = await base44.entities.Project.create(projectData);
-      await base44.entities.Bid.update(bidId, { status: "won" });
+      const bidUpdates = { status: "won", ...bidUpdateData };
+      await base44.entities.Bid.update(bidId, sanitizeBidUpdatePayload(bidUpdates));
       return project;
     },
     onSuccess: () => {
@@ -70,8 +75,29 @@ export default function BidManagement() {
   const handleSave = e => {
     e.preventDefault();
     const totalFee = Object.values(stageBreakdown).reduce((s, st) => s + (st ? (Number(st.fee) || 0) : 0), 0);
-    const data = { ...form, estimated_value: form.estimated_value ? Number(form.estimated_value) : undefined, fee_proposal: totalFee > 0 ? totalFee : (form.fee_proposal ? Number(form.fee_proposal) : undefined), probability: form.probability ? Number(form.probability) : undefined, stage_breakdown: stageBreakdown };
-    editingBid ? updateMut.mutate({ id: editingBid.id, data }) : createMut.mutate(data);
+    const data = {
+      ...form,
+      estimated_value: form.estimated_value ? Number(form.estimated_value) : undefined,
+      fee_proposal: totalFee > 0 ? totalFee : (form.fee_proposal ? Number(form.fee_proposal) : undefined),
+      probability: form.probability ? Number(form.probability) : undefined,
+      stage_breakdown: stageBreakdown,
+    };
+
+    if (editingBid) {
+      // If status is being changed to "won", trigger project creation dialog instead
+      const statusChangingToWon = editingBid.status !== "won" && data.status === "won";
+      if (statusChangingToWon) {
+        // Store the updated bid data temporarily and open kick-off dialog
+        setForm(data);
+        setKickOffBid({ ...editingBid, ...data });
+        setDialogOpen(false);
+      } else {
+        const updateData = sanitizeBidUpdatePayload(data);
+        updateMut.mutate({ id: editingBid.id, data: updateData });
+      }
+    } else {
+      createMut.mutate(data);
+    }
   };
 
   const totalCalcFee = Object.values(stageBreakdown).reduce((s, sb) => {
@@ -168,11 +194,11 @@ export default function BidManagement() {
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">{bid.title}</p>
                 <div className="flex gap-2">
-                  {bid.client_onboarding_status !== "approved" && (
-                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => updateMut.mutate({ id: bid.id, data: { client_onboarding_status: "approved" } })}>Approve</Button>
+                  {bid.client_onboarding_status !== "completed" && (
+                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => updateMut.mutate({ id: bid.id, data: { client_onboarding_status: "completed" } })}>Complete</Button>
                   )}
-                  {bid.client_onboarding_status !== "rejected" && (
-                    <Button size="sm" variant="outline" className="flex-1 text-xs text-destructive" onClick={() => updateMut.mutate({ id: bid.id, data: { client_onboarding_status: "rejected" } })}>Reject</Button>
+                  {bid.client_onboarding_status !== "pending" && (
+                    <Button size="sm" variant="outline" className="flex-1 text-xs text-destructive" onClick={() => updateMut.mutate({ id: bid.id, data: { client_onboarding_status: "pending" } })}>Reset</Button>
                   )}
                 </div>
               </Card>
@@ -220,7 +246,10 @@ export default function BidManagement() {
           bid={kickOffBid}
           employees={employees}
           loading={kickOffMut.isPending}
-          onConfirm={projectData => kickOffMut.mutate({ bidId: kickOffBid.id, projectData })}
+          onConfirm={projectData => {
+            const bidUpdateData = sanitizeBidUpdatePayload({ ...form });
+            kickOffMut.mutate({ bidId: kickOffBid.id, projectData, bidUpdateData });
+          }}
         />
       )}
 

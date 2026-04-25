@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Upload, FileText, Trash2, ExternalLink, FolderOpen, FolderClosed, Filter } from "lucide-react";
+import { Search, Upload, FileText, Trash2, ExternalLink, FolderOpen, FolderClosed } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
@@ -18,6 +18,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/lib/AuthContext";
 
 const CATEGORIES = ["contract", "proposal", "report", "drawing", "specification", "correspondence", "financial", "hr", "bid", "other"];
 const FOLDERS = ["Projects", "Bids", "HR", "Finance", "Templates", "General"];
@@ -26,12 +27,14 @@ const CAT_COLORS = { contract: "bg-blue-100 text-blue-700", proposal: "bg-violet
 const defaultForm = { title: "", project_name: "", category: "", folder: "", version: "v1.0", description: "", tags: [], uploaded_by: "" };
 
 export default function DataManagement() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [folderFilter, setFolderFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [form, setForm] = useState(defaultForm);
   const [tagInput, setTagInput] = useState("");
   const [file, setFile] = useState(null);
@@ -40,6 +43,7 @@ export default function DataManagement() {
 
   const { data: documents = [] } = useQuery({ queryKey: ["documents"], queryFn: () => base44.entities.Document.list("-created_date") });
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
+  const uploadedBy = user?.user_metadata?.full_name || user?.email || "";
 
   const createMut = useMutation({ mutationFn: d => base44.entities.Document.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setDialogOpen(false); setFile(null); } });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Document.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setDeleteId(null); } });
@@ -48,13 +52,20 @@ export default function DataManagement() {
     e.preventDefault();
     if (!form.title || !form.category) return;
     setUploading(true);
-    let file_url = "";
-    if (file) {
-      const res = await base44.integrations.Core.UploadFile({ file });
-      file_url = res.file_url;
+    setUploadError("");
+    try {
+      let file_url = "";
+      if (file) {
+        const res = await base44.integrations.Core.UploadFile({ file });
+        file_url = res.file_url;
+      }
+      await createMut.mutateAsync({ ...form, file_url, uploaded_by: uploadedBy });
+    } catch (error) {
+      console.error("Document upload failed:", error);
+      setUploadError(error.message || "Document upload failed.");
+    } finally {
+      setUploading(false);
     }
-    createMut.mutate({ ...form, file_url, uploaded_by: form.uploaded_by || "Current User" });
-    setUploading(false);
   };
 
   const addTag = () => { if (tagInput.trim()) { setForm(f => ({ ...f, tags: [...(f.tags || []), tagInput.trim()] })); setTagInput(""); } };
@@ -73,7 +84,7 @@ export default function DataManagement() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Data Management" description="Centralized document repository with version control" actionLabel="Upload Document" onAction={() => { setForm(defaultForm); setFile(null); setDialogOpen(true); }}>
+      <PageHeader title="Data Management" description="Centralized document repository with version control" actionLabel="Upload Document" onAction={() => { setForm({ ...defaultForm, uploaded_by: uploadedBy }); setFile(null); setDialogOpen(true); }}>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Types</SelectItem>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
           <Select value={folderFilter} onValueChange={setFolderFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Folders</SelectItem>{folders.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select>
@@ -169,7 +180,7 @@ export default function DataManagement() {
               <div className="space-y-1.5"><Label>Folder</Label><Select value={form.folder} onValueChange={v => setForm(f => ({...f, folder: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{FOLDERS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Project</Label><Select value={form.project_name} onValueChange={v => setForm(f => ({...f, project_name: v}))}><SelectTrigger><SelectValue placeholder="None" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Version</Label><Input value={form.version} onChange={e => setForm(f => ({...f, version: e.target.value}))} placeholder="v1.0" /></div>
-              <div className="space-y-1.5 col-span-2"><Label>Uploaded By</Label><Input value={form.uploaded_by} onChange={e => setForm(f => ({...f, uploaded_by: e.target.value}))} /></div>
+              <div className="space-y-1.5 col-span-2"><Label>Uploaded By</Label><Input value={uploadedBy} readOnly className="bg-muted cursor-not-allowed" /></div>
             </div>
             <div className="space-y-1.5">
               <Label>File</Label>
@@ -187,6 +198,7 @@ export default function DataManagement() {
               <div className="flex flex-wrap gap-1.5">{(form.tags || []).map((t, i) => <span key={i} className="inline-flex items-center gap-1 bg-secondary text-xs px-2 py-1 rounded">{t}<button type="button" onClick={() => removeTag(i)}>×</button></span>)}</div>
             </div>
             <div className="space-y-1.5"><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} rows={2} /></div>
+            {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
             <DialogFooter><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit" disabled={uploading}>{uploading ? "Uploading..." : "Upload"}</Button></DialogFooter>
           </form>
         </DialogContent>

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Circle, ArrowRight, Clock, Plus, AlertTriangle } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
@@ -33,6 +32,7 @@ export default function WorkflowDashboard() {
   const [projectFilter, setProjectFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [formErrors, setFormErrors] = useState({});
   const queryClient = useQueryClient();
 
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
@@ -54,6 +54,37 @@ export default function WorkflowDashboard() {
     updateMut.mutate({ id: m.id, data: { status: m.status === "completed" ? "pending" : "completed", completed_date: m.status !== "completed" ? new Date().toISOString().split("T")[0] : null } });
   };
 
+  const openNewMilestone = () => {
+    setForm(defaultForm);
+    setFormErrors({});
+    setDialogOpen(true);
+  };
+
+  const updateForm = (updates) => {
+    setForm(f => ({ ...f, ...updates }));
+    setFormErrors(errors => {
+      const next = { ...errors };
+      Object.keys(updates).forEach(key => delete next[key]);
+      return next;
+    });
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (!form.title.trim()) errors.title = "Milestone title is required.";
+    if (!form.project_name) errors.project_name = "Project is required.";
+    if (!form.due_date) errors.due_date = "Due date is required.";
+    return errors;
+  };
+
+  const handleCreateMilestone = (e) => {
+    e.preventDefault();
+    const errors = validateForm();
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    createMut.mutate(form);
+  };
+
   const activeProjectList = projects.filter(p => p.status !== "closed");
 
   return (
@@ -65,7 +96,7 @@ export default function WorkflowDashboard() {
             <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All Projects</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
           </Select>
-          <Button size="sm" onClick={() => { setForm(defaultForm); setDialogOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Milestone</Button>
+          <Button size="sm" onClick={openNewMilestone}><Plus className="h-4 w-4 mr-1" /> Milestone</Button>
         </div>
       </div>
 
@@ -178,19 +209,19 @@ export default function WorkflowDashboard() {
         </Card>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setFormErrors({}); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>New Milestone</DialogTitle></DialogHeader>
-          <form onSubmit={e => { e.preventDefault(); createMut.mutate(form); }} className="space-y-4">
-            <div className="space-y-1.5"><Label>Title *</Label><Input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} required /></div>
-            <div className="space-y-1.5"><Label>Project *</Label><Select value={form.project_name} onValueChange={v => setForm(f => ({...f, project_name: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+          <form onSubmit={handleCreateMilestone} className="space-y-4">
+            <div className="space-y-1.5"><Label>Title *</Label><Input value={form.title} onChange={e => updateForm({ title: e.target.value })} className={formErrors.title ? "border-destructive" : ""} required />{formErrors.title && <p className="text-xs text-destructive">{formErrors.title}</p>}</div>
+            <div className="space-y-1.5"><Label>Project *</Label><Select value={form.project_name} onValueChange={v => updateForm({ project_name: v })}><SelectTrigger className={formErrors.project_name ? "border-destructive" : ""}><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select>{formErrors.project_name && <p className="text-xs text-destructive">{formErrors.project_name}</p>}</div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>RIBA Stage</Label><Select value={form.riba_stage} onValueChange={v => setForm(f => ({...f, riba_stage: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{RIBA_STAGES.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-1.5"><Label>Phase</Label><Select value={form.phase} onValueChange={v => setForm(f => ({...f, phase: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PHASES.map(p => <SelectItem key={p} value={p}>{p.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-1.5"><Label>Due Date</Label><Input type="date" value={form.due_date} onChange={e => setForm(f => ({...f, due_date: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>Assigned To</Label><Input value={form.assigned_to} onChange={e => setForm(f => ({...f, assigned_to: e.target.value}))} /></div>
+              <div className="space-y-1.5"><Label>RIBA Stage</Label><Select value={form.riba_stage} onValueChange={v => updateForm({ riba_stage: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{RIBA_STAGES.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5"><Label>Phase</Label><Select value={form.phase} onValueChange={v => updateForm({ phase: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PHASES.map(p => <SelectItem key={p} value={p}>{p.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5"><Label>Due Date *</Label><Input type="date" value={form.due_date} onChange={e => updateForm({ due_date: e.target.value })} className={formErrors.due_date ? "border-destructive" : ""} required />{formErrors.due_date && <p className="text-xs text-destructive">{formErrors.due_date}</p>}</div>
+              <div className="space-y-1.5"><Label>Assigned To</Label><Input value={form.assigned_to} onChange={e => updateForm({ assigned_to: e.target.value })} /></div>
             </div>
-            <div className="space-y-1.5"><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} rows={2} /></div>
+            <div className="space-y-1.5"><Label>Description</Label><Textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={2} /></div>
             <DialogFooter><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit">Create</Button></DialogFooter>
           </form>
         </DialogContent>

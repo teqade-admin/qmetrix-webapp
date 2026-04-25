@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/AuthContext";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Clock, CheckCircle2, XCircle, Pencil, Trash2, Plus,
+  Clock, CheckCircle2, Pencil, Trash2, Plus,
   ChevronLeft, ChevronRight, Send, AlertCircle
 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
@@ -24,6 +25,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const RIBA_STAGES = [
   { value: "pre_concept", label: "Pre-Concept" },
@@ -57,10 +59,13 @@ export default function Timesheets() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(defaultForm);
   const [tab, setTab] = useState("week");
+  const [formError, setFormError] = useState("");
   const [currentWeekStart, setCurrentWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const queryClient = useQueryClient();
+  const { user, userRole } = useAuth();
+  const canApproveTimesheets = ["admin", "hr"].includes(userRole);
 
   const { data: timesheets = [] } = useQuery({
     queryKey: ["timesheets"],
@@ -74,6 +79,19 @@ export default function Timesheets() {
     queryKey: ["projects"],
     queryFn: () => base44.entities.Project.list()
   });
+
+  const currentEmployeeName = useMemo(() => {
+    const userFullName = user?.user_metadata?.full_name;
+    if (!user) return "";
+    const match = employees.find(e => e.email === user.email || (userFullName && e.full_name === userFullName));
+    return match?.full_name || userFullName || user.email || "";
+  }, [user, employees]);
+
+  useEffect(() => {
+    if (!editing && dialogOpen && !form.employee_name) {
+      setForm(f => ({ ...f, employee_name: currentEmployeeName }));
+    }
+  }, [currentEmployeeName, dialogOpen, editing, form.employee_name]);
 
   const createMut = useMutation({
     mutationFn: d => base44.entities.Timesheet.create(d),
@@ -123,24 +141,44 @@ export default function Timesheets() {
 
   const openNew = (date = "") => {
     setEditing(null);
-    setForm({ ...defaultForm, date });
+    setFormError("");
+    setForm({ ...defaultForm, date, employee_name: currentEmployeeName });
     setDialogOpen(true);
   };
   const openEdit = ts => {
     setEditing(ts);
+    setFormError("");
     setForm({ ...defaultForm, ...ts, hours: ts.hours || "" });
     setDialogOpen(true);
   };
   const handleSave = e => {
     e.preventDefault();
-    const data = { ...form, hours: Number(form.hours) };
-    editing ? updateMut.mutate({ id: editing.id, data }) : createMut.mutate(data);
+    setFormError("");
+
+    if (!form.employee_name || !form.project_name || !form.date) {
+      setFormError("Employee, project, and date are required.");
+      return;
+    }
+
+    const weekEnding = format(endOfWeek(parseISO(form.date), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const data = { ...form, hours: Number(form.hours), week_ending: weekEnding };
+    if (editing) {
+      const { id, ...updateData } = data;
+      updateMut.mutate({ id: editing.id, data: updateData });
+    } else {
+      createMut.mutate(data);
+    }
   };
 
   const submitWeek = () => {
     const draftIds = weekTimesheets.filter(t => t.status === "draft").map(t => t.id);
     Promise.all(draftIds.map(id => base44.entities.Timesheet.update(id, { status: "submitted" })))
       .then(() => queryClient.invalidateQueries({ queryKey: ["timesheets"] }));
+  };
+
+  const approveTimesheet = (id) => {
+    if (!canApproveTimesheets) return;
+    updateMut.mutate({ id, data: { status: "approved" } });
   };
 
   const weekHasDrafts = weekTimesheets.some(t => t.status === "draft");
@@ -262,9 +300,9 @@ export default function Timesheets() {
                               : <Badge variant="outline" className="text-[10px] py-0 h-4">Non-Bill</Badge>
                             }
                             <StatusBadge status={ts.status} />
-                            {ts.status === "submitted" && (
+                            {canApproveTimesheets && ts.status === "submitted" && (
                               <Button variant="ghost" size="icon" className="h-6 w-6 text-emerald-600" title="Approve"
-                                onClick={() => updateMut.mutate({ id: ts.id, data: { status: "approved" } })}>
+                                onClick={() => approveTimesheet(ts.id)}>
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                               </Button>
                             )}
@@ -326,9 +364,9 @@ export default function Timesheets() {
                       <td className="p-3"><StatusBadge status={ts.status} /></td>
                       <td className="p-3">
                         <div className="flex gap-1">
-                          {ts.status === "submitted" && (
+                          {canApproveTimesheets && ts.status === "submitted" && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Approve"
-                              onClick={() => updateMut.mutate({ id: ts.id, data: { status: "approved" } })}>
+                              onClick={() => approveTimesheet(ts.id)}>
                               <CheckCircle2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -359,18 +397,15 @@ export default function Timesheets() {
             <DialogTitle>{editing ? "Edit Timesheet Entry" : "Log Hours"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
+            {formError && (
+              <Alert variant="destructive">
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2">
                 <Label>Employee *</Label>
-                <Select value={form.employee_name} onValueChange={v => setForm(f => ({ ...f, employee_name: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                  <SelectContent>
-                    {employees.filter(e => e.status !== "terminated").map(e => (
-                      <SelectItem key={e.id} value={e.full_name}>{e.full_name}</SelectItem>
-                    ))}
-                    {employees.length === 0 && <SelectItem value={form.employee_name || "Me"}>{form.employee_name || "Me"}</SelectItem>}
-                  </SelectContent>
-                </Select>
+                <Input value={currentEmployeeName} disabled />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Project *</Label>

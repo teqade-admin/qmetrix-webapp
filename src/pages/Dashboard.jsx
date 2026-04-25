@@ -1,21 +1,27 @@
-import React from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, FolderKanban, DollarSign, AlertTriangle, TrendingUp, Clock, CheckCircle2, Target } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area } from "recharts";
+import { Button } from "@/components/ui/button";
+import { Users, FileText, FolderKanban, DollarSign, AlertTriangle, CheckCircle2, Settings, AlertCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
+import { useAuth } from "@/lib/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const COLORS = ["#1e3a5f", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#06b6d4", "#f97316"];
 
 export default function Dashboard() {
   const { currency } = useCurrency();
+  const { user, userRole } = useAuth();
+  const [adminSetup, setAdminSetup] = useState({ loading: false, message: '', error: '' });
+  const queryClient = useQueryClient();
   const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: () => base44.entities.Employee.list() });
   const { data: bids = [] } = useQuery({ queryKey: ["bids"], queryFn: () => base44.entities.Bid.list() });
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
@@ -68,8 +74,66 @@ export default function Dashboard() {
     value: projects.filter(p => p.status === s).length,
   })).filter(d => d.value > 0);
 
+  const createDefaultAdmin = async () => {
+    setAdminSetup({ loading: true, message: '', error: '' });
+    try {
+      if (!user) throw new Error('No authenticated user');
+
+      const { error } = await supabase.rpc('bootstrap_admin_account', {
+        p_full_name: user.user_metadata?.full_name || user.email,
+      });
+
+      if (error) throw error;
+
+      setAdminSetup({ loading: false, message: 'Admin setup complete! You are now the system admin.', error: '' });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role"] });
+    } catch (error) {
+      setAdminSetup({ loading: false, message: '', error: error.message });
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Admin Setup - Show if no employees and user is authenticated */}
+      {user && employees.length === 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-800">
+              <Settings className="h-5 w-5" />
+              System Setup Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-amber-700">
+              No employees found in the system. Set up your account as the system admin to get started.
+            </p>
+            {adminSetup.error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{adminSetup.error}</AlertDescription>
+              </Alert>
+            )}
+            {adminSetup.message && (
+              <Alert>
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription className="text-green-700">{adminSetup.message}</AlertDescription>
+              </Alert>
+            )}
+            <Button
+              onClick={createDefaultAdmin}
+              disabled={adminSetup.loading}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {adminSetup.loading ? 'Setting up...' : 'Set Up as Admin'}
+            </Button>
+            <p className="text-sm text-amber-600">
+              This will make your current account the system administrator.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Top KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard title="Active Staff" value={activeEmployees} icon={Users} subtitle={`${onboardingCount} onboarding`} color="primary" />

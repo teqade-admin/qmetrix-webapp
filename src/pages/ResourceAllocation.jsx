@@ -32,6 +32,7 @@ export default function ResourceAllocation() {
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(defaultForm);
+  const [formErrors, setFormErrors] = useState({});
   const queryClient = useQueryClient();
 
   const { data: allocations = [] } = useQuery({ queryKey: ["allocations"], queryFn: () => base44.entities.ResourceAllocation.list("-created_date") });
@@ -43,9 +44,52 @@ export default function ResourceAllocation() {
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.ResourceAllocation.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDialogOpen(false); setEditing(null); } });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.ResourceAllocation.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDeleteId(null); } });
 
-  const openNew = () => { setEditing(null); setForm(defaultForm); setDialogOpen(true); };
-  const openEdit = a => { setEditing(a); setForm({ ...defaultForm, ...a, allocation_percent: a.allocation_percent || "", hours_budgeted: a.hours_budgeted || "", hours_spent: a.hours_spent || "" }); setDialogOpen(true); };
-  const handleSave = e => { e.preventDefault(); const data = { ...form, allocation_percent: Number(form.allocation_percent), hours_budgeted: form.hours_budgeted ? Number(form.hours_budgeted) : undefined, hours_spent: form.hours_spent ? Number(form.hours_spent) : undefined }; editing ? updateMut.mutate({ id: editing.id, data }) : createMut.mutate(data); };
+  const openNew = () => { setEditing(null); setForm(defaultForm); setFormErrors({}); setDialogOpen(true); };
+  const openEdit = a => { setEditing(a); setForm({ ...defaultForm, ...a, allocation_percent: a.allocation_percent || "", hours_budgeted: a.hours_budgeted || "", hours_spent: a.hours_spent || "" }); setFormErrors({}); setDialogOpen(true); };
+  const updateForm = (updates) => {
+    setForm(f => ({ ...f, ...updates }));
+    setFormErrors(errors => {
+      const next = { ...errors };
+      Object.keys(updates).forEach(key => delete next[key]);
+      delete next.form;
+      return next;
+    });
+  };
+  const validateForm = () => {
+    const errors = {};
+    if (!form.employee_name) errors.employee_name = "Employee is required.";
+    if (!form.project_name) errors.project_name = "Project is required.";
+    if (form.allocation_percent === "" || form.allocation_percent == null) {
+      errors.allocation_percent = "Allocation percentage is required.";
+    }
+    if (!form.start_date) errors.start_date = "Start date is required.";
+    if (!form.end_date) errors.end_date = "End date is required.";
+    if (form.start_date && form.end_date && form.end_date < form.start_date) {
+      errors.end_date = "End date must be on or after the start date.";
+    }
+    return errors;
+  };
+  const handleSave = e => {
+    e.preventDefault();
+    const errors = validateForm();
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    const data = {
+      ...form,
+      allocation_percent: Number(form.allocation_percent),
+      hours_budgeted: form.hours_budgeted ? Number(form.hours_budgeted) : undefined,
+      hours_spent: form.hours_spent ? Number(form.hours_spent) : undefined,
+    };
+    if (editing) {
+      const { id, ...updateData } = data;
+      updateMut.mutate({ id: editing.id, data: updateData });
+    } else {
+      createMut.mutate(data);
+    }
+  };
 
   const activeAllocations = allocations.filter(a => a.status === "active");
   const activeEmployees = employees.filter(e => e.status === "active");
@@ -161,21 +205,21 @@ export default function ResourceAllocation() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setFormErrors({}); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? "Edit Allocation" : "New Allocation"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-1.5"><Label>Employee *</Label><Select value={form.employee_name} onValueChange={v => setForm(f => ({...f, employee_name: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{employees.filter(e => e.status === "active").map(e => <SelectItem key={e.id} value={e.full_name}>{e.full_name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1.5"><Label>Project *</Label><Select value={form.project_name} onValueChange={v => setForm(f => ({...f, project_name: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{projects.filter(p => p.status !== "closed").map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1.5"><Label>Employee *</Label><Select value={form.employee_name} onValueChange={v => updateForm({ employee_name: v })}><SelectTrigger className={formErrors.employee_name ? "border-destructive" : ""}><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{employees.filter(e => e.status === "active").map(e => <SelectItem key={e.id} value={e.full_name}>{e.full_name}</SelectItem>)}</SelectContent></Select>{formErrors.employee_name && <p className="text-xs text-destructive">{formErrors.employee_name}</p>}</div>
+            <div className="space-y-1.5"><Label>Project *</Label><Select value={form.project_name} onValueChange={v => updateForm({ project_name: v })}><SelectTrigger className={formErrors.project_name ? "border-destructive" : ""}><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{projects.filter(p => p.status !== "closed").map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select>{formErrors.project_name && <p className="text-xs text-destructive">{formErrors.project_name}</p>}</div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Role on Project</Label><Input value={form.role_on_project} onChange={e => setForm(f => ({...f, role_on_project: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>Allocation % *</Label><Input type="number" min="0" max="200" value={form.allocation_percent} onChange={e => setForm(f => ({...f, allocation_percent: e.target.value}))} required /></div>
-              <div className="space-y-1.5"><Label>Budgeted Hours</Label><Input type="number" value={form.hours_budgeted} onChange={e => setForm(f => ({...f, hours_budgeted: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>Hours Spent</Label><Input type="number" value={form.hours_spent} onChange={e => setForm(f => ({...f, hours_spent: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>Start Date</Label><Input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>End Date</Label><Input type="date" value={form.end_date} onChange={e => setForm(f => ({...f, end_date: e.target.value}))} /></div>
+              <div className="space-y-1.5"><Label>Role on Project</Label><Input value={form.role_on_project} onChange={e => updateForm({ role_on_project: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Allocation % *</Label><Input type="number" min="0" max="200" value={form.allocation_percent} onChange={e => updateForm({ allocation_percent: e.target.value })} className={formErrors.allocation_percent ? "border-destructive" : ""} required />{formErrors.allocation_percent && <p className="text-xs text-destructive">{formErrors.allocation_percent}</p>}</div>
+              <div className="space-y-1.5"><Label>Budgeted Hours</Label><Input type="number" value={form.hours_budgeted} onChange={e => updateForm({ hours_budgeted: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Hours Spent</Label><Input type="number" value={form.hours_spent} onChange={e => updateForm({ hours_spent: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Start Date *</Label><Input type="date" value={form.start_date} onChange={e => updateForm({ start_date: e.target.value })} className={formErrors.start_date ? "border-destructive" : ""} required />{formErrors.start_date && <p className="text-xs text-destructive">{formErrors.start_date}</p>}</div>
+              <div className="space-y-1.5"><Label>End Date *</Label><Input type="date" value={form.end_date} onChange={e => updateForm({ end_date: e.target.value })} className={formErrors.end_date ? "border-destructive" : ""} required />{formErrors.end_date && <p className="text-xs text-destructive">{formErrors.end_date}</p>}</div>
             </div>
-            <div className="space-y-1.5"><Label>Status</Label><Select value={form.status} onValueChange={v => setForm(f => ({...f, status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">Planned</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label>Status</Label><Select value={form.status} onValueChange={v => updateForm({ status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="planned">Planned</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent></Select></div>
             <DialogFooter><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit">{editing ? "Update" : "Create"}</Button></DialogFooter>
           </form>
         </DialogContent>

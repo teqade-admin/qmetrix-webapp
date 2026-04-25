@@ -1,6 +1,6 @@
 import React from "react";
 import { differenceInCalendarDays, parseISO, isValid } from "date-fns";
-import { AlertTriangle, CheckCircle2, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
 
 function safeParse(d) {
   if (!d) return null;

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, Download, AlertTriangle } from "lucide-react";
+import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText } from "lucide-react";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 import PageHeader from "@/components/shared/PageHeader";
@@ -24,6 +24,18 @@ import {
 
 const defaultInvoice = { invoice_number: "", project_name: "", client_name: "", amount: "", tax_amount: "", total_amount: "", issue_date: "", due_date: "", status: "draft", description: "", riba_stage: "", billing_hours: "" };
 const defaultExpense = { description: "", project_name: "", category: "", amount: "", date: "", submitted_by: "", status: "pending" };
+const PROVIDER_NAME = "Qmetrix Consultancy";
+
+const getInvoiceSequence = (invoiceNumber) => {
+  const match = String(invoiceNumber || "").match(/\d+/g);
+  if (!match) return 0;
+  return Number(match[match.length - 1]) || 0;
+};
+
+const getNextInvoiceNumber = (invoices) => {
+  const maxInvoiceNumber = invoices.reduce((max, invoice) => Math.max(max, getInvoiceSequence(invoice.invoice_number)), 0);
+  return String(maxInvoiceNumber + 1);
+};
 
 export default function Finance() {
   const { currency } = useCurrency();
@@ -56,10 +68,17 @@ export default function Finance() {
   const outstanding = invoices.filter(i => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
   const overdue = invoices.filter(i => i.status === "overdue");
+  const clientOptions = Array.from(new Set([
+    ...projects.map(p => p.client_name).filter(Boolean),
+    ...invoices.map(i => i.client_name).filter(Boolean),
+  ])).sort((a, b) => a.localeCompare(b));
+  const filteredInvoiceProjects = invForm.client_name
+    ? projects.filter(p => p.client_name === invForm.client_name)
+    : projects;
 
   const openNewInvoice = () => {
     setEditingInvoice(null);
-    setInvForm(defaultInvoice);
+    setInvForm({ ...defaultInvoice, invoice_number: getNextInvoiceNumber(invoices) });
     setInvoiceDialog(true);
   };
   const openEditInvoice = inv => { setEditingInvoice(inv); setInvForm({ ...defaultInvoice, ...inv, amount: inv.amount || "", tax_amount: inv.tax_amount || "", total_amount: inv.total_amount || "", billing_hours: inv.billing_hours || "" }); setInvoiceDialog(true); };
@@ -73,6 +92,90 @@ export default function Finance() {
   });
 
   const filteredExpenses = expenses.filter(e => (e.description || "").toLowerCase().includes(search.toLowerCase()) || (e.project_name || "").toLowerCase().includes(search.toLowerCase()));
+
+  const downloadInvoicePdf = async (invoice) => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 48;
+    const amount = Number(invoice.amount) || 0;
+    const tax = Number(invoice.tax_amount) || 0;
+    const total = Number(invoice.total_amount) || amount + tax;
+    const money = (value) => formatMoney(Number(value) || 0, currency);
+
+    doc.setFillColor(30, 58, 95);
+    doc.rect(0, 0, pageWidth, 118, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.text(PROVIDER_NAME, margin, 54);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Professional Quantity Surveying and Project Controls", margin, 75);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.text("INVOICE", pageWidth - margin, 58, { align: "right" });
+    doc.setFontSize(11);
+    doc.text(`#${invoice.invoice_number}`, pageWidth - margin, 82, { align: "right" });
+
+    doc.setTextColor(17, 24, 39);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Bill To", margin, 160);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(invoice.client_name || "Client", margin, 180);
+    if (invoice.project_name) doc.text(`Project: ${invoice.project_name}`, margin, 198);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Invoice Details", pageWidth - 210, 160);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Issue Date: ${invoice.issue_date ? format(new Date(invoice.issue_date), "dd MMM yyyy") : "-"}`, pageWidth - 210, 180);
+    doc.text(`Due Date: ${invoice.due_date ? format(new Date(invoice.due_date), "dd MMM yyyy") : "-"}`, pageWidth - 210, 198);
+    doc.text(`Status: ${(invoice.status || "draft").toUpperCase()}`, pageWidth - 210, 216);
+
+    const tableTop = 260;
+    doc.setFillColor(243, 244, 246);
+    doc.rect(margin, tableTop, pageWidth - margin * 2, 34, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Description", margin + 14, tableTop + 22);
+    doc.text("Hours", pageWidth - 235, tableTop + 22, { align: "right" });
+    doc.text("Amount", pageWidth - margin - 14, tableTop + 22, { align: "right" });
+
+    doc.setDrawColor(229, 231, 235);
+    doc.rect(margin, tableTop, pageWidth - margin * 2, 100);
+    doc.line(margin, tableTop + 34, pageWidth - margin, tableTop + 34);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const description = invoice.description || `${invoice.project_name || "Professional services"}${invoice.riba_stage ? ` - ${invoice.riba_stage.replace(/_/g, " ")}` : ""}`;
+    const lines = doc.splitTextToSize(description, pageWidth - 250);
+    doc.text(lines, margin + 14, tableTop + 58);
+    doc.text(invoice.billing_hours ? String(invoice.billing_hours) : "-", pageWidth - 235, tableTop + 58, { align: "right" });
+    doc.text(money(amount), pageWidth - margin - 14, tableTop + 58, { align: "right" });
+
+    const totalsX = pageWidth - 240;
+    const totalsY = tableTop + 140;
+    doc.setFont("helvetica", "normal");
+    doc.text("Subtotal", totalsX, totalsY);
+    doc.text(money(amount), pageWidth - margin, totalsY, { align: "right" });
+    doc.text("Tax", totalsX, totalsY + 24);
+    doc.text(money(tax), pageWidth - margin, totalsY + 24, { align: "right" });
+    doc.setDrawColor(30, 58, 95);
+    doc.line(totalsX, totalsY + 40, pageWidth - margin, totalsY + 40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Total Due", totalsX, totalsY + 64);
+    doc.text(money(total), pageWidth - margin, totalsY + 64, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Thank you for your business.", margin, 720);
+    doc.text(`${PROVIDER_NAME} | Generated by QMetrix Operations Suite`, margin, 740);
+
+    doc.save(`invoice-${invoice.invoice_number || invoice.id}.pdf`);
+  };
 
   return (
     <div className="space-y-4">
@@ -142,6 +245,7 @@ export default function Finance() {
                         <td className="p-3"><StatusBadge status={inv.status} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadInvoicePdf(inv)} title="Download PDF"><FileText className="h-3.5 w-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "invoice", id: inv.id })}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </div>
@@ -203,9 +307,9 @@ export default function Finance() {
           <DialogHeader><DialogTitle>{editingInvoice ? "Edit Invoice" : "New Invoice"}</DialogTitle></DialogHeader>
           <form onSubmit={e => { e.preventDefault(); const d = { ...invForm, amount: Number(invForm.amount)||0, tax_amount: Number(invForm.tax_amount)||0, total_amount: Number(invForm.total_amount)||Number(invForm.amount)||0, billing_hours: invForm.billing_hours ? Number(invForm.billing_hours) : undefined }; editingInvoice ? invUpdate.mutate({ id: editingInvoice.id, data: d }) : invCreate.mutate(d); }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Invoice # *</Label><Input value={invForm.invoice_number} onChange={e => setInvForm(f => ({...f, invoice_number: e.target.value}))} required /></div>
-              <div className="space-y-1.5"><Label>Client *</Label><Input value={invForm.client_name} onChange={e => setInvForm(f => ({...f, client_name: e.target.value}))} required /></div>
-              <div className="space-y-1.5"><Label>Project</Label><Select value={invForm.project_name} onValueChange={v => { const proj = projects.find(p => p.name === v); setInvForm(f => ({...f, project_name: v, client_name: f.client_name || proj?.client_name || ""})); }}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5"><Label>Invoice # *</Label><Input value={invForm.invoice_number} readOnly className="bg-muted cursor-not-allowed" required /></div>
+              <div className="space-y-1.5"><Label>Client *</Label><Select value={invForm.client_name} onValueChange={v => setInvForm(f => ({...f, client_name: v, project_name: projects.find(p => p.name === f.project_name)?.client_name === v ? f.project_name : ""}))}><SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger><SelectContent>{clientOptions.map(client => <SelectItem key={client} value={client}>{client}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5"><Label>Project</Label><Select value={invForm.project_name} onValueChange={v => { const proj = projects.find(p => p.name === v); setInvForm(f => ({...f, project_name: v, client_name: proj?.client_name || f.client_name})); }}><SelectTrigger><SelectValue placeholder={invForm.client_name ? "Select" : "Select client first"} /></SelectTrigger><SelectContent>{filteredInvoiceProjects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Status</Label><Select value={invForm.status} onValueChange={v => setInvForm(f => ({...f, status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["draft","sent","paid","overdue","cancelled"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Amount ({currency.symbol}) *</Label><Input type="number" value={invForm.amount} onChange={e => setInvForm(f => ({...f, amount: e.target.value}))} required /></div>
               <div className="space-y-1.5"><Label>Tax ({currency.symbol})</Label><Input type="number" value={invForm.tax_amount} onChange={e => setInvForm(f => ({...f, tax_amount: e.target.value}))} /></div>

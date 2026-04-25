@@ -59,6 +59,7 @@ import ResourceMonitor from './pages/ResourceMonitor';
 import Timesheets from './pages/Timesheets';
 import WorkflowDashboard from './pages/WorkflowDashboard';
 import Projects from './pages/Projects';
+import Profile from './pages/Profile';
 import __Layout from './Layout.jsx';
 
 
@@ -75,6 +76,7 @@ export const PAGES = {
     "Timesheets": Timesheets,
     "WorkflowDashboard": WorkflowDashboard,
     "Projects": Projects,
+    "Profile": Profile,
 }
 
 export const pagesConfig = {

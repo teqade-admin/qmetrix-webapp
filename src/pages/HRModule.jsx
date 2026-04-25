@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Search, Pencil, Trash2, Star, UserPlus, ChevronRight } from "lucide-react";
+import { Search, Pencil, Trash2, UserPlus } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
@@ -19,6 +19,8 @@ import StatCard from "@/components/shared/StatCard";
 import LeaveTracker from "@/components/hr/LeaveTracker";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { Users, UserCheck, Clock } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { provisionEmployeeAccount, DEFAULT_EMPLOYEE_PASSWORD } from "@/lib/employeeAccounts";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -28,11 +30,21 @@ const DEPARTMENTS = ["cost_management", "quantity_surveying", "project_managemen
 const ROLES = ["director", "associate_director", "senior_consultant", "consultant", "junior_consultant", "analyst", "administrator"];
 const APP_ROLES = ["admin", "hr", "qs", "billing", "project_manager", "finance", "reviewer", "approver"];
 const PERF_RATINGS = ["exceptional", "exceeds_expectations", "meets_expectations", "needs_improvement", "unsatisfactory"];
+const NO_MANAGER = "__none__";
 
 const defaultForm = {
   full_name: "", email: "", phone: "", department: "", role: "", app_role: "qs", job_title: "",
   hourly_rate: "", cost_rate: "", salary: "", status: "active", start_date: "",
   onboarding_status: "not_started", kpi_score: "", performance_rating: "", manager_name: "", notes: "", skills: []
+};
+
+const emptyToNull = (value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 };
 
 export default function HRModule() {
@@ -45,6 +57,8 @@ export default function HRModule() {
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [form, setForm] = useState(defaultForm);
   const [skillInput, setSkillInput] = useState("");
+  const [provisionMessage, setProvisionMessage] = useState("");
+  const [provisionError, setProvisionError] = useState("");
   const queryClient = useQueryClient();
 
   const { data: employees = [], isLoading } = useQuery({
@@ -52,7 +66,37 @@ export default function HRModule() {
     queryFn: () => base44.entities.Employee.list("-created_date"),
   });
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.Employee.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDialogOpen(false); } });
+  const createMut = useMutation({ 
+    mutationFn: async (data) => {
+      const employee = await base44.entities.Employee.create(data);
+
+      try {
+        const provisionResult = await provisionEmployeeAccount({
+          employeeId: employee.id,
+          email: employee.email,
+          fullName: employee.full_name,
+          appRole: employee.app_role,
+        });
+
+        return { employee, provisionResult };
+      } catch (error) {
+        await base44.entities.Employee.delete(employee.id).catch(() => {});
+        throw error;
+      }
+    },
+    onSuccess: ({ employee }) => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setDialogOpen(false);
+      setProvisionError("");
+      setProvisionMessage(
+        `${employee.email} can now sign in with the temporary password "${DEFAULT_EMPLOYEE_PASSWORD}" and then change or reset it.`
+      );
+    },
+    onError: (error) => {
+      setProvisionMessage("");
+      setProvisionError(error.message);
+    },
+  });
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDialogOpen(false); setEditing(null); } });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
 
@@ -60,8 +104,28 @@ export default function HRModule() {
   const openEdit = (e) => { setEditing(e); setForm({ ...defaultForm, ...e, hourly_rate: e.hourly_rate || "", cost_rate: e.cost_rate || "", salary: e.salary || "", kpi_score: e.kpi_score || "" }); setDialogOpen(true); };
   const handleSave = (ev) => {
     ev.preventDefault();
-    const data = { ...form, hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined, cost_rate: form.cost_rate ? Number(form.cost_rate) : undefined, salary: form.salary ? Number(form.salary) : undefined, kpi_score: form.kpi_score ? Number(form.kpi_score) : undefined };
-    editing ? updateMut.mutate({ id: editing.id, data }) : createMut.mutate(data);
+    setProvisionMessage("");
+    setProvisionError("");
+    const data = {
+      ...form,
+      phone: emptyToNull(form.phone),
+      job_title: emptyToNull(form.job_title),
+      hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
+      cost_rate: form.cost_rate ? Number(form.cost_rate) : undefined,
+      salary: form.salary ? Number(form.salary) : undefined,
+      start_date: form.start_date || null,
+      kpi_score: form.kpi_score ? Number(form.kpi_score) : undefined,
+      performance_rating: form.performance_rating || null,
+      manager_name: emptyToNull(form.manager_name),
+      notes: emptyToNull(form.notes),
+      skills: Array.isArray(form.skills) && form.skills.length > 0 ? form.skills : null,
+    };
+    if (editing) {
+      const { id, ...updateData } = data;
+      updateMut.mutate({ id: editing.id, data: updateData });
+    } else {
+      createMut.mutate(data);
+    }
   };
   const addSkill = () => { if (skillInput.trim()) { setForm(f => ({ ...f, skills: [...(f.skills || []), skillInput.trim()] })); setSkillInput(""); } };
   const removeSkill = i => setForm(f => ({ ...f, skills: (f.skills || []).filter((_, idx) => idx !== i) }));
@@ -71,6 +135,7 @@ export default function HRModule() {
     (e.department || "").toLowerCase().includes(search.toLowerCase()) ||
     (e.role || "").toLowerCase().includes(search.toLowerCase())
   );
+  const managerOptions = employees.filter((employee) => employee.id !== editing?.id);
 
   const active = employees.filter(e => e.status === "active").length;
   const onLeave = employees.filter(e => e.status === "on_leave").length;
@@ -84,6 +149,18 @@ export default function HRModule() {
           <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-52" />
         </div>
       </PageHeader>
+
+      {provisionMessage && (
+        <Alert>
+          <AlertDescription>{provisionMessage}</AlertDescription>
+        </Alert>
+      )}
+
+      {provisionError && (
+        <Alert variant="destructive">
+          <AlertDescription>{provisionError}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard title="Total Staff" value={employees.length} icon={Users} color="primary" />
@@ -269,7 +346,23 @@ export default function HRModule() {
               <div className="space-y-1.5"><Label>Cost Rate ({currency.symbol}/hr)</Label><Input type="number" value={form.cost_rate} onChange={e => setForm(f => ({...f, cost_rate: e.target.value}))} /></div>
               <div className="space-y-1.5"><Label>Annual Salary ({currency.symbol})</Label><Input type="number" value={form.salary} onChange={e => setForm(f => ({...f, salary: e.target.value}))} /></div>
               <div className="space-y-1.5"><Label>Start Date</Label><Input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>Manager</Label><Input value={form.manager_name} onChange={e => setForm(f => ({...f, manager_name: e.target.value}))} /></div>
+              <div className="space-y-1.5">
+                <Label>Manager</Label>
+                <Select
+                  value={form.manager_name || NO_MANAGER}
+                  onValueChange={v => setForm(f => ({ ...f, manager_name: v === NO_MANAGER ? "" : v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_MANAGER}>No manager</SelectItem>
+                    {managerOptions.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.full_name}>
+                        {employee.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5"><Label>Onboarding Status</Label><Select value={form.onboarding_status} onValueChange={v => setForm(f => ({...f, onboarding_status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="not_started">Not Started</SelectItem><SelectItem value="in_progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5"><Label>KPI Score (0–100)</Label><Input type="number" min="0" max="100" value={form.kpi_score} onChange={e => setForm(f => ({...f, kpi_score: e.target.value}))} /></div>
               <div className="space-y-1.5"><Label>Performance Rating</Label><Select value={form.performance_rating} onValueChange={v => setForm(f => ({...f, performance_rating: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{PERF_RATINGS.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select></div>

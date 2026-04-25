@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,14 +17,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Search, FolderKanban, TrendingUp, Users, DollarSign, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Pencil, Trash2, Search, FolderKanban, TrendingUp, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import WorkSectionsTracker from "@/components/projects/WorkSectionsTracker";
 import DateComparison from "@/components/projects/DateComparison";
-import { format } from "date-fns";
 
 const SECTORS = ["residential","commercial","infrastructure","healthcare","education","industrial","mixed_use","government","other"];
 const STATUSES = ["kick_off","feasibility","design","pre_construction","construction","post_completion","closed"];
@@ -103,7 +102,12 @@ export default function Projects() {
       budgeted_hours: form.budgeted_hours !== "" ? Number(form.budgeted_hours) : undefined,
       actual_hours: form.actual_hours !== "" ? Number(form.actual_hours) : undefined,
     };
-    editing ? updateMut.mutate({ id: editing.id, data }) : createMut.mutate(data);
+    if (editing) {
+      const { id, ...updateData } = data;
+      updateMut.mutate({ id: editing.id, data: updateData });
+    } else {
+      createMut.mutate(data);
+    }
   };
 
   const filtered = projects.filter(p => {

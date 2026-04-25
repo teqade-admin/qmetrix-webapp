@@ -9,9 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, Clock, Upload, FileCheck, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, FileCheck, AlertCircle, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
@@ -50,12 +48,30 @@ export default function DeliveryModule() {
   const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: () => base44.entities.Employee.list() });
 
   const createMut = useMutation({ mutationFn: d => base44.entities.Deliverable.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDialogOpen(false); } });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Deliverable.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDialogOpen(false); setEditing(null); if (selectedDeliverable?.id === id) { queryClient.invalidateQueries(); } } });
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Deliverable.update(id, data),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["deliverables"] });
+      setDialogOpen(false);
+      setEditing(null);
+      if (selectedDeliverable?.id === variables.id) {
+        queryClient.invalidateQueries({ queryKey: ["deliverables"] });
+      }
+    }
+  });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Deliverable.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDeleteId(null); } });
 
   const openNew = () => { setEditing(null); setForm(defaultForm); setDialogOpen(true); };
   const openEdit = d => { setEditing(d); setForm({ ...defaultForm, ...d }); setDialogOpen(true); };
-  const handleSave = e => { e.preventDefault(); editing ? updateMut.mutate({ id: editing.id, data: form }) : createMut.mutate(form); };
+  const handleSave = e => {
+    e.preventDefault();
+    if (editing) {
+      const { id, ...updateData } = form;
+      updateMut.mutate({ id: editing.id, data: updateData });
+    } else {
+      createMut.mutate(form);
+    }
+  };
 
   const advanceOCRA = (deliverable, step) => {
     const updates = { [step.statusKey]: step.statusKey === "authoriser_status" ? "approved" : "approved" };

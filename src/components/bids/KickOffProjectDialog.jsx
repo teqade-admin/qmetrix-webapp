@@ -29,7 +29,6 @@ export default function KickOffProjectDialog({ open, onOpenChange, bid, employee
       fee_agreed: bid?.fee_proposal || 0,
       project_value: bid?.estimated_value || 0,
       status: "kick_off",
-      bid_id: bid?.id || "",
       description: bid?.description || "",
       ...form,
     });

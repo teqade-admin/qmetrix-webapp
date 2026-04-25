@@ -2,12 +2,10 @@ import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend, ComposedChart, Area } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { DollarSign, TrendingUp, TrendingDown, Target, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 
 export default function CostValueDashboard() {

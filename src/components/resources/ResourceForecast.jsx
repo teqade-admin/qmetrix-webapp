@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { addMonths, format, startOfMonth, endOfMonth, isWithinInterval, parseISO, differenceInMonths } from "date-fns";
+import { addMonths, format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 
 // Working hours per month per person (~160h)
 const HOURS_PER_MONTH = 160;

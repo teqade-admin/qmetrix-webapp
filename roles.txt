@@ -1,0 +1,53 @@
+admin: full system access
+hr: human resources management
+qs: quantity surveying operations
+billing: invoice and payment management
+project_manager: project oversight
+finance: financial reporting
+reviewer: document review access
+approver: approval permissions
+
+From your SQL, the permissions model is this:
+
+admin
+
+gets all permissions on all resources
+
+
+hr
+
+gets all permissions whose resource is employees
+
+
+qs
+
+gets permissions for projects, timesheets, bids, deliverables
+
+
+billing
+
+gets permissions for invoices, expenses
+
+
+project_manager
+
+gets permissions for projects, timesheets, deliverables
+
+
+finance
+
+gets permissions for invoices, expenses, projects
+
+
+reviewer
+
+gets every permission where action is read or update
+
+
+approver
+
+gets every permission where action is approve
+
+
+Important limitation:
+your current live RLS does not truly enforce this role model for most business tables. The role tables and mappings exist, but the table policies are mostly broad authenticated access. So right now, in practice, many signed-in users can do more than their nominal role suggests unless you tighten RLS further.

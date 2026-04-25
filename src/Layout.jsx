@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
   LayoutDashboard, Users, FileText, FolderKanban, DollarSign,
   BarChart3, UserCheck, GitBranch, Database, ChevronLeft,
-  Menu, LogOut, Building2, Clock, ClipboardCheck, ChevronDown,
-  Settings, Bell, Search, User
+  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, Bell, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";  // ← changed
-import { Badge } from "@/components/ui/badge";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 
 const navGroups = [
@@ -56,7 +57,7 @@ const navGroups = [
 export default function Layout({ children, currentPageName }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout } = useAuth();  // ← changed
+  const { user, logout, userRole } = useAuth();  // ← changed
 
   const allItems = navGroups.flatMap(g => g.items);
   const currentItem = allItems.find(i => i.page === currentPageName);
@@ -134,7 +135,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-medium truncate">{user.user_metadata?.full_name || user.email}</p>
-                <p className="text-[10px] text-muted-foreground truncate capitalize">{user.role || "user"}</p>
+                <p className="text-[10px] text-muted-foreground truncate capitalize">{userRole || "user"}</p>
               </div>
             </div>
           )}
@@ -172,11 +173,39 @@ export default function Layout({ children, currentPageName }) {
               <Bell className="h-4 w-4" />
             </Button>
             {user && (
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-xs">
-                  {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 px-2 gap-2">
+                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                      <span className="text-primary-foreground font-bold text-xs">
+                        {(user.user_metadata?.full_name || user.email || "U").charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user.user_metadata?.full_name || "User"}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                      {userRole && <p className="text-xs leading-none text-muted-foreground capitalize">{userRole}</p>}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to={createPageUrl("Profile")} className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </header>

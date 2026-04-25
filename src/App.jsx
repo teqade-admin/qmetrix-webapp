@@ -8,6 +8,10 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { CurrencyProvider } from '@/components/shared/CurrencyContext';
 import Timesheets from './pages/Timesheets';
 import DeliveryModule from './pages/DeliveryModule';
+import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
+import ErrorBoundary from '@/lib/ErrorBoundary';
+import GlobalErrorHandlers from '@/lib/GlobalErrorHandlers';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -18,7 +22,12 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth } = useAuth();
+  const { isAuthenticated, isLoadingAuth } = useAuth();
+  const publicPath = window.location.pathname.toLowerCase();
+
+  if (publicPath === '/reset-password') {
+    return <ResetPassword />;
+  }
 
   if (isLoadingAuth) {
     return (
@@ -26,6 +35,10 @@ const AuthenticatedApp = () => {
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
   }
 
   return (
@@ -48,6 +61,8 @@ const AuthenticatedApp = () => {
       ))}
       <Route path="/Timesheets" element={<LayoutWrapper currentPageName="Timesheets"><Timesheets /></LayoutWrapper>} />
       <Route path="/DeliveryModule" element={<LayoutWrapper currentPageName="DeliveryModule"><DeliveryModule /></LayoutWrapper>} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
@@ -55,16 +70,19 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <CurrencyProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
-        </QueryClientProvider>
-      </CurrencyProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <CurrencyProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <GlobalErrorHandlers />
+            <Router>
+              <AuthenticatedApp />
+            </Router>
+            <Toaster />
+          </QueryClientProvider>
+        </CurrencyProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
