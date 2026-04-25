@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { CurrencyProvider } from '@/components/shared/CurrencyContext';
@@ -23,7 +23,8 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 
 const AuthenticatedApp = () => {
   const { isAuthenticated, isLoadingAuth } = useAuth();
-  const publicPath = window.location.pathname.toLowerCase();
+  const location = useLocation();
+  const publicPath = location.pathname.toLowerCase();
 
   if (publicPath === '/reset-password') {
     return <ResetPassword />;
@@ -75,7 +76,7 @@ function App() {
         <CurrencyProvider>
           <QueryClientProvider client={queryClientInstance}>
             <GlobalErrorHandlers />
-            <Router>
+            <Router basename={import.meta.env.BASE_URL}>
               <AuthenticatedApp />
             </Router>
             <Toaster />
