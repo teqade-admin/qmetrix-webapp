@@ -2,7 +2,7 @@
   "name": "base44-app",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://sraja090212.github.io/QMetrix-App",
+  "homepage": "https://teqade-admin.github.io/qmetrix-webapp",
   "type": "module",
   "scripts": {
     "dev": "vite",
