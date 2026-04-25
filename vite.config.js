@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import path from 'path'
 
 export default defineConfig({
-  base: process.env.GITHUB_PAGES === 'true' ? '/qmetrix-webapp/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/qmetrix-webapp/' : '/',
   plugins: [react()],
   resolve: {
     alias: {
