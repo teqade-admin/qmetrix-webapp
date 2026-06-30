@@ -5,8 +5,10 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { canRead } from '@/lib/permissions';
+import AccessDenied from '@/lib/AccessDenied';
 import { CurrencyProvider } from '@/components/shared/CurrencyContext';
-import Timesheets from './pages/Timesheets';
+import TimeManagement from './pages/TimeManagement';
 import DeliveryModule from './pages/DeliveryModule';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
@@ -20,6 +22,12 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
+
+// Block direct navigation to a page the current role can't read.
+const Guarded = ({ page, children }) => {
+  const { userRole } = useAuth();
+  return canRead(userRole, page) ? children : <AccessDenied />;
+};
 
 const AuthenticatedApp = () => {
   const { isAuthenticated, isLoadingAuth } = useAuth();
@@ -46,7 +54,7 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
+          <Guarded page={mainPageKey}><MainPage /></Guarded>
         </LayoutWrapper>
       } />
       {Object.entries(Pages).map(([path, Page]) => (
@@ -55,13 +63,13 @@ const AuthenticatedApp = () => {
           path={`/${path}`}
           element={
             <LayoutWrapper currentPageName={path}>
-              <Page />
+              <Guarded page={path}><Page /></Guarded>
             </LayoutWrapper>
           }
         />
       ))}
-      <Route path="/Timesheets" element={<LayoutWrapper currentPageName="Timesheets"><Timesheets /></LayoutWrapper>} />
-      <Route path="/DeliveryModule" element={<LayoutWrapper currentPageName="DeliveryModule"><DeliveryModule /></LayoutWrapper>} />
+      <Route path="/TimeManagement" element={<LayoutWrapper currentPageName="TimeManagement"><Guarded page="TimeManagement"><TimeManagement /></Guarded></LayoutWrapper>} />
+      <Route path="/DeliveryModule" element={<LayoutWrapper currentPageName="DeliveryModule"><Guarded page="DeliveryModule"><DeliveryModule /></Guarded></LayoutWrapper>} />
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<PageNotFound />} />

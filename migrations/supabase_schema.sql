@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   department TEXT CHECK (department IN ('cost_management', 'quantity_surveying', 'project_management', 'commercial', 'finance', 'administration', 'executive')),
   job_title TEXT,
   role TEXT CHECK (role IN ('director', 'associate_director', 'senior_consultant', 'consultant', 'junior_consultant', 'analyst', 'administrator')),
-  app_role TEXT DEFAULT 'qs' CHECK (app_role IN ('admin', 'hr', 'qs', 'billing', 'project_manager', 'finance', 'reviewer', 'approver')),
+  app_role TEXT DEFAULT 'ops_user' CHECK (app_role IN ('super_admin', 'hr_admin', 'hr_user', 'ops_admin', 'ops_user', 'finance_admin', 'finance_user')),
   hourly_rate NUMERIC,
   cost_rate NUMERIC,
   salary NUMERIC,
@@ -68,9 +68,17 @@ CREATE TABLE IF NOT EXISTS public.employees (
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'on_leave', 'terminated')),
   start_date DATE,
   onboarding_status TEXT DEFAULT 'not_started' CHECK (onboarding_status IN ('not_started', 'in_progress', 'completed')),
+  onboarding_checklist JSONB DEFAULT '{}'::jsonb,
   kpi_score NUMERIC CHECK (kpi_score >= 0 AND kpi_score <= 100),
+  kpi_target NUMERIC CHECK (kpi_target IS NULL OR (kpi_target >= 0 AND kpi_target <= 100)),
+  goals TEXT,
   performance_rating TEXT CHECK (performance_rating IN ('exceptional', 'exceeds_expectations', 'meets_expectations', 'needs_improvement', 'unsatisfactory')),
   manager_name TEXT,
+  manager_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
+  contract_url TEXT,
+  contracts JSONB DEFAULT '[]'::jsonb,
+  documents JSONB DEFAULT '[]'::jsonb,
+  allocated_projects JSONB DEFAULT '[]'::jsonb,
   avatar_url TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -92,6 +100,19 @@ CREATE TABLE IF NOT EXISTS public.leave_requests (
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- App settings (single row: branding / logo)
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  id BOOLEAN PRIMARY KEY DEFAULT true,
+  logo_url TEXT,
+  company_name TEXT DEFAULT 'QMetrix',
+  company_subtitle TEXT DEFAULT 'Operations Suite',
+  base_currency TEXT DEFAULT 'GBP',
+  kpi_config JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT app_settings_singleton CHECK (id)
 );
 
 -- Projects table
@@ -160,14 +181,33 @@ CREATE TABLE IF NOT EXISTS public.resource_allocations (
 );
 
 -- Bids table
+-- Clients table (client database / profiles)
+CREATE TABLE IF NOT EXISTS public.clients (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  company_name TEXT NOT NULL,
+  contact_person TEXT,
+  phone TEXT,
+  email TEXT,
+  sector TEXT CHECK (sector IN ('residential', 'commercial', 'infrastructure', 'healthcare', 'education', 'industrial', 'mixed_use', 'government', 'other')),
+  address TEXT,
+  website TEXT,
+  notes TEXT,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'prospect', 'inactive')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.bids (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   title TEXT NOT NULL,
+  client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
   client_name TEXT NOT NULL,
   client_contact TEXT,
+  client_phone TEXT,
   client_email TEXT,
   description TEXT,
   sector TEXT CHECK (sector IN ('residential', 'commercial', 'infrastructure', 'healthcare', 'education', 'industrial', 'mixed_use', 'government', 'other')),
+  currency TEXT DEFAULT 'GBP',
   estimated_value NUMERIC,
   fee_proposal NUMERIC,
   submission_date DATE,

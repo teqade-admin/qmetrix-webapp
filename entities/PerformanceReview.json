@@ -1,0 +1,21 @@
+{
+  "name": "PerformanceReview",
+  "type": "object",
+  "properties": {
+    "employee_id": { "type": "string" },
+    "employee_name": { "type": "string" },
+    "period_label": { "type": "string" },
+    "period_start": { "type": "string", "format": "date" },
+    "period_end": { "type": "string", "format": "date" },
+    "utilisation": { "type": "number" },
+    "billable_hours": { "type": "number" },
+    "non_billable_hours": { "type": "number" },
+    "revenue": { "type": "number" },
+    "kpi_score": { "type": "number" },
+    "rating": { "type": "string" },
+    "comments": { "type": "string" },
+    "objectives": { "type": "string" },
+    "reviewed_by": { "type": "string" }
+  },
+  "required": ["period_label"]
+}

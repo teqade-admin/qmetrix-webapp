@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { canWrite, canDelete } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +36,9 @@ const OCRA_STEPS = [
 const defaultForm = { title: "", project_name: "", riba_stage: "stage_0", deliverable_type: "", due_date: "", originator: "", checker: "", reviewer: "", authoriser: "", overall_status: "not_started", version: "v1.0", comments: "" };
 
 export default function DeliveryModule() {
+  const { userRole } = useAuth();
+  const canEdit = canWrite(userRole, "DeliveryModule");
+  const canRemove = canDelete(userRole, "DeliveryModule");
   const [tab, setTab] = useState("deliverables");
   const [projectFilter, setProjectFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -90,7 +95,7 @@ export default function DeliveryModule() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Delivery Module" description="QA/QC workflow using OCRA — Originator, Checker, Reviewer, Authoriser" actionLabel="New Deliverable" onAction={openNew}>
+      <PageHeader title="Delivery Module" description="QA/QC workflow using OCRA — Originator, Checker, Reviewer, Authoriser" actionLabel={canEdit ? "New Deliverable" : undefined} onAction={canEdit ? openNew : undefined}>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">All Projects</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
@@ -144,8 +149,8 @@ export default function DeliveryModule() {
                       <td className="p-3"><StatusBadge status={d.overall_status} /></td>
                       <td className="p-3" onClick={e => e.stopPropagation()}>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(d.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                          {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(d.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                         </div>
                       </td>
                     </tr>

@@ -54,12 +54,15 @@ import DataManagement from './pages/DataManagement';
 import DeliveryModule from './pages/DeliveryModule';
 import Finance from './pages/Finance';
 import HRModule from './pages/HRModule';
+import KPIPerformance from './pages/KPIPerformance';
 import ResourceAllocation from './pages/ResourceAllocation';
 import ResourceMonitor from './pages/ResourceMonitor';
-import Timesheets from './pages/Timesheets';
+import TimeManagement from './pages/TimeManagement';
 import WorkflowDashboard from './pages/WorkflowDashboard';
 import Projects from './pages/Projects';
 import Profile from './pages/Profile';
+import Team from './pages/Team';
+import Settings from './pages/Settings';
 import __Layout from './Layout.jsx';
 
 
@@ -71,12 +74,15 @@ export const PAGES = {
     "DeliveryModule": DeliveryModule,
     "Finance": Finance,
     "HRModule": HRModule,
+    "KPIPerformance": KPIPerformance,
     "ResourceAllocation": ResourceAllocation,
     "ResourceMonitor": ResourceMonitor,
-    "Timesheets": Timesheets,
+    "TimeManagement": TimeManagement,
     "WorkflowDashboard": WorkflowDashboard,
     "Projects": Projects,
     "Profile": Profile,
+    "Team": Team,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {

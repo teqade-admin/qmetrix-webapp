@@ -97,4 +97,7 @@ export const entities = {
   Deliverable: makeEntity('deliverables'),
   Document: makeEntity('documents'),
   LeaveRequest: makeEntity('leave_requests'),
+  AppSettings: makeEntity('app_settings'),
+  Client: makeEntity('clients'),
+  PerformanceReview: makeEntity('performance_reviews'),
 };

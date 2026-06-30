@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { canWrite } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,8 @@ const PHASES = ["kick_off", "feasibility", "design", "pre_construction", "constr
 const defaultForm = { title: "", project_name: "", phase: "kick_off", riba_stage: "stage_0", due_date: "", assigned_to: "", description: "", status: "pending" };
 
 export default function WorkflowDashboard() {
+  const { userRole } = useAuth();
+  const canEdit = canWrite(userRole, "WorkflowDashboard");
   const [projectFilter, setProjectFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
@@ -96,7 +100,7 @@ export default function WorkflowDashboard() {
             <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All Projects</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
           </Select>
-          <Button size="sm" onClick={openNewMilestone}><Plus className="h-4 w-4 mr-1" /> Milestone</Button>
+          {canEdit && <Button size="sm" onClick={openNewMilestone}><Plus className="h-4 w-4 mr-1" /> Milestone</Button>}
         </div>
       </div>
 
@@ -158,7 +162,7 @@ export default function WorkflowDashboard() {
                     const isOverdue = m.due_date && new Date(m.due_date) < new Date() && m.status !== "completed";
                     return (
                       <div key={m.id} className="flex items-start gap-3 p-3 hover:bg-muted/20 transition-colors">
-                        <button onClick={() => toggleMilestone(m)} className="mt-0.5 shrink-0">
+                        <button onClick={() => canEdit && toggleMilestone(m)} disabled={!canEdit} className={cn("mt-0.5 shrink-0", !canEdit && "cursor-default")}>
                           {m.status === "completed" ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : isOverdue ? <AlertTriangle className="h-5 w-5 text-red-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
                         </button>
                         <div className="flex-1 min-w-0">

@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { canWrite, canDelete } from "@/lib/permissions";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +42,9 @@ const getNextInvoiceNumber = (invoices) => {
 
 export default function Finance() {
   const { currency } = useCurrency();
+  const { userRole } = useAuth();
+  const canEdit = canWrite(userRole, "Finance");
+  const canRemove = canDelete(userRole, "Finance");
   const [tab, setTab] = useState("invoices");
   const [invoiceDialog, setInvoiceDialog] = useState(false);
   const [expenseDialog, setExpenseDialog] = useState(false);
@@ -92,6 +98,8 @@ export default function Finance() {
   });
 
   const filteredExpenses = expenses.filter(e => (e.description || "").toLowerCase().includes(search.toLowerCase()) || (e.project_name || "").toLowerCase().includes(search.toLowerCase()));
+  const invPager = usePagination(filteredInvoices, 10);
+  const expPager = usePagination(filteredExpenses, 10);
 
   const downloadInvoicePdf = async (invoice) => {
     const { jsPDF } = await import("jspdf");
@@ -212,15 +220,17 @@ export default function Finance() {
             {tab === "invoices" && (
               <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{["draft","sent","paid","overdue","cancelled"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
             )}
-            <Button size="sm" onClick={tab === "invoices" ? openNewInvoice : openNewExpense}>
-              <Plus className="h-4 w-4 mr-1" />{tab === "invoices" ? "Invoice" : "Expense"}
-            </Button>
+            {canEdit && (
+              <Button size="sm" onClick={tab === "invoices" ? openNewInvoice : openNewExpense}>
+                <Plus className="h-4 w-4 mr-1" />{tab === "invoices" ? "Invoice" : "Expense"}
+              </Button>
+            )}
           </div>
         </div>
 
         <TabsContent value="invoices" className="mt-4">
           <Card>
-            {filteredInvoices.length === 0 ? <EmptyState title="No invoices" actionLabel="New Invoice" onAction={openNewInvoice} /> : (
+            {filteredInvoices.length === 0 ? <EmptyState title="No invoices" actionLabel={canEdit ? "New Invoice" : undefined} onAction={canEdit ? openNewInvoice : undefined} /> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b bg-muted/30">
@@ -234,7 +244,7 @@ export default function Finance() {
                     <th className="p-3 w-24"></th>
                   </tr></thead>
                   <tbody>
-                    {filteredInvoices.map(inv => (
+                    {invPager.pageItems.map(inv => (
                       <tr key={inv.id} className="border-b hover:bg-muted/20">
                         <td className="p-3 font-medium">{inv.invoice_number}</td>
                         <td className="p-3">{inv.client_name}</td>
@@ -246,14 +256,15 @@ export default function Finance() {
                         <td className="p-3">
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadInvoicePdf(inv)} title="Download PDF"><FileText className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "invoice", id: inv.id })}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                            {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "invoice", id: inv.id })}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                <Pagination {...invPager} />
               </div>
             )}
           </Card>
@@ -261,7 +272,7 @@ export default function Finance() {
 
         <TabsContent value="expenses" className="mt-4">
           <Card>
-            {filteredExpenses.length === 0 ? <EmptyState title="No expenses" actionLabel="New Expense" onAction={openNewExpense} /> : (
+            {filteredExpenses.length === 0 ? <EmptyState title="No expenses" actionLabel={canEdit ? "New Expense" : undefined} onAction={canEdit ? openNewExpense : undefined} /> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b bg-muted/30">
@@ -275,7 +286,7 @@ export default function Finance() {
                     <th className="p-3 w-24"></th>
                   </tr></thead>
                   <tbody>
-                    {filteredExpenses.map(exp => (
+                    {expPager.pageItems.map(exp => (
                       <tr key={exp.id} className="border-b hover:bg-muted/20">
                         <td className="p-3 font-medium">{exp.description}</td>
                         <td className="p-3 capitalize text-xs">{(exp.category || "").replace(/_/g, " ")}</td>
@@ -286,15 +297,16 @@ export default function Finance() {
                         <td className="p-3"><StatusBadge status={exp.status} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            {exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" } })} title="Approve"><Receipt className="h-3.5 w-3.5" /></Button>}
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditExpense(exp)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "expense", id: exp.id })}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            {canEdit && exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" } })} title="Approve"><Receipt className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditExpense(exp)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                            {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "expense", id: exp.id })}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                <Pagination {...expPager} />
               </div>
             )}
           </Card>

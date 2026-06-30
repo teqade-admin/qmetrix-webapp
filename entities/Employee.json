@@ -42,16 +42,15 @@
     "app_role": {
       "type": "string",
       "enum": [
-        "admin",
-        "hr",
-        "qs",
-        "billing",
-        "project_manager",
-        "finance",
-        "reviewer",
-        "approver"
+        "super_admin",
+        "hr_admin",
+        "hr_user",
+        "ops_admin",
+        "ops_user",
+        "finance_admin",
+        "finance_user"
       ],
-      "default": "qs"
+      "default": "ops_user"
     },
     "hourly_rate": {
       "type": "number",
@@ -93,9 +92,21 @@
       ],
       "default": "not_started"
     },
+    "onboarding_checklist": {
+      "type": "object",
+      "description": "Per-stage onboarding completion flags"
+    },
     "kpi_score": {
       "type": "number",
       "description": "Latest KPI score 0-100"
+    },
+    "kpi_target": {
+      "type": "number",
+      "description": "Target KPI score 0-100"
+    },
+    "goals": {
+      "type": "string",
+      "description": "Free-text goals / objectives"
     },
     "performance_rating": {
       "type": "string",
@@ -108,7 +119,31 @@
       ]
     },
     "manager_name": {
-      "type": "string"
+      "type": "string",
+      "description": "Denormalized manager display name; kept in sync with manager_id"
+    },
+    "manager_id": {
+      "type": "string",
+      "description": "Employee id of this person's line manager (self-referencing)"
+    },
+    "contract_url": {
+      "type": "string",
+      "description": "Deprecated single contract path (superseded by contracts[])"
+    },
+    "contracts": {
+      "type": "array",
+      "description": "Employment contracts [{name, path, status, uploaded_at}] — newest is active",
+      "items": { "type": "object" }
+    },
+    "documents": {
+      "type": "array",
+      "description": "Collected onboarding documents [{name, url}]",
+      "items": { "type": "object" }
+    },
+    "allocated_projects": {
+      "type": "array",
+      "description": "Names of projects this employee is allocated to",
+      "items": { "type": "string" }
     },
     "avatar_url": {
       "type": "string"

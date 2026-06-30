@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { canWrite, canDelete } from "@/lib/permissions";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +44,9 @@ const defaultForm = {
 };
 
 export default function Projects() {
+  const { userRole } = useAuth();
+  const canEdit = canWrite(userRole, "Projects");
+  const canRemove = canDelete(userRole, "Projects");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -115,6 +121,7 @@ export default function Projects() {
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
     return matchSearch && matchStatus;
   });
+  const pager = usePagination(filtered, 9);
 
   const activeProjects = projects.filter(p => p.status !== "closed");
   const totalFee = projects.reduce((s, p) => s + (p.fee_agreed || 0), 0);
@@ -126,8 +133,8 @@ export default function Projects() {
       <PageHeader
         title="Projects"
         description="Manage active projects, track programme and work sections"
-        actionLabel="New Project"
-        onAction={openNew}
+        actionLabel={canEdit ? "New Project" : undefined}
+        onAction={canEdit ? openNew : undefined}
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -156,10 +163,10 @@ export default function Projects() {
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading…</div>
       ) : filtered.length === 0 ? (
-        <EmptyState title="No projects found" actionLabel="New Project" onAction={openNew} />
+        <EmptyState title="No projects found" actionLabel={canEdit ? "New Project" : undefined} onAction={canEdit ? openNew : undefined} />
       ) : (
         <div className="space-y-3">
-          {filtered.map(project => (
+          {pager.pageItems.map(project => (
             <Card key={project.id} className="overflow-hidden">
               {/* Project row header */}
               <div
@@ -191,8 +198,8 @@ export default function Projects() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openEdit(project); }}><Pencil className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={e => { e.stopPropagation(); setDeleteId(project.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openEdit(project); }}><Pencil className="h-3.5 w-3.5" /></Button>}
+                  {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={e => { e.stopPropagation(); setDeleteId(project.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
                   {expandedId === project.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </div>
@@ -252,6 +259,7 @@ export default function Projects() {
               )}
             </Card>
           ))}
+          <Pagination {...pager} className="rounded-md border bg-card" />
         </div>
       )}
 

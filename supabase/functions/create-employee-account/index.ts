@@ -82,8 +82,25 @@ Deno.serve(async (req) => {
       })
       .filter(Boolean);
 
-    if (!callerRoles.some((role) => role === 'admin' || role === 'hr')) {
-      return jsonResponse({ success: false, error: 'Only admin or HR users can create employee accounts.' }, 403);
+    // Also accept the new RBAC model, where the caller's role lives on their
+    // employee record (app_role) rather than the legacy roles/user_roles tables.
+    const { data: callerEmployee } = await adminClient
+      .from('employees')
+      .select('app_role')
+      .or(`user_id.eq.${caller.id}${caller.email ? `,email.eq.${caller.email}` : ''}`)
+      .limit(1)
+      .maybeSingle();
+    const callerAppRole = callerEmployee?.app_role;
+
+    const LEGACY_OK = ['admin', 'hr'];
+    const NEW_OK = ['super_admin', 'hr_admin', 'hr_user'];
+    const authorized =
+      callerRoles.some((role) => LEGACY_OK.includes(role)) ||
+      (callerAppRole && NEW_OK.includes(callerAppRole)) ||
+      (callerAppRole && LEGACY_OK.includes(callerAppRole));
+
+    if (!authorized) {
+      return jsonResponse({ success: false, error: 'Only HR or admin users can create employee accounts.' }, 403);
     }
 
     const { employeeId, email, fullName, appRole } = await req.json();

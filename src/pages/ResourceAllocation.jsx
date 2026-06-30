@@ -2,6 +2,8 @@ import React, { useState } from "react";
 
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { canWrite, canDelete } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,9 @@ import {
 const defaultForm = { employee_name: "", project_name: "", role_on_project: "", allocation_percent: "", hours_budgeted: "", hours_spent: "", start_date: "", end_date: "", riba_stage: "", status: "active" };
 
 export default function ResourceAllocation() {
+  const { userRole } = useAuth();
+  const canEdit = canWrite(userRole, "ResourceAllocation");
+  const canRemove = canDelete(userRole, "ResourceAllocation");
   const [tab, setTab] = useState("allocations");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -106,7 +111,7 @@ export default function ResourceAllocation() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Resource Allocation" description="Assign staff, track utilization and forecast resource needs" actionLabel="New Allocation" onAction={openNew} />
+      <PageHeader title="Resource Allocation" description="Assign staff, track utilization and forecast resource needs" actionLabel={canEdit ? "New Allocation" : undefined} onAction={canEdit ? openNew : undefined} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard title="Active Allocations" value={activeAllocations.length} icon={UserCheck} color="primary" />
@@ -124,7 +129,7 @@ export default function ResourceAllocation() {
 
         <TabsContent value="allocations" className="mt-4">
           <Card>
-            {allocations.length === 0 ? <EmptyState title="No allocations yet" actionLabel="New Allocation" onAction={openNew} /> : (
+            {allocations.length === 0 ? <EmptyState title="No allocations yet" actionLabel={canEdit ? "New Allocation" : undefined} onAction={canEdit ? openNew : undefined} /> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b bg-muted/30">
@@ -151,8 +156,8 @@ export default function ResourceAllocation() {
                         <td className="p-3"><StatusBadge status={a.status} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                            {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>
                         </td>
                       </tr>
