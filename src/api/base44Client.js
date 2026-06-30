@@ -34,12 +34,23 @@ const uploadFile = async ({ file, bucket = DEFAULT_STORAGE_BUCKET, folder = 'upl
   };
 };
 
+// Mint a short-lived signed URL for a private-bucket object (default 1 hour).
+const createSignedUrl = async ({ bucket = DEFAULT_STORAGE_BUCKET, path, expiresIn = 3600 }) => {
+  if (!path) throw new Error('No file path provided for signed URL.');
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+  if (error) {
+    throw new Error(`Could not generate a download link for "${bucket}". ${error.message}`);
+  }
+  return data.signedUrl;
+};
+
 // Drop-in replacement for base44 — all pages work without changes
 export const base44 = {
   entities,
   integrations: {
     Core: {
       UploadFile: uploadFile,
+      CreateSignedUrl: createSignedUrl,
     },
   },
   auth: {

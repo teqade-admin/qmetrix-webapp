@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, Users, FileText, FolderKanban, DollarSign,
   BarChart3, UserCheck, GitBranch, Database, ChevronLeft,
-  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, Bell, User
+  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, Bell, User, Settings, Target, Network
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";  // ← changed
+import { canRead, ROLE_LABELS } from "@/lib/permissions";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 
 const navGroups = [
@@ -22,20 +25,22 @@ const navGroups = [
     ]
   },
   {
-    label: "Operations",
+    label: "People",
     items: [
-      { name: "HR Module", page: "HRModule", icon: Users },
-      { name: "Timesheets", page: "Timesheets", icon: Clock },
-      { name: "Bid Management", page: "BidManagement", icon: FileText },
-      { name: "Projects", page: "Projects", icon: FolderKanban },
-      { name: "Deliverables", page: "DeliveryModule", icon: ClipboardCheck },
+      { name: "Employment", page: "HRModule", icon: Users },
+      { name: "Team", page: "Team", icon: Network },
+      { name: "KPI & Performance", page: "KPIPerformance", icon: Target },
+      { name: "Time Management", page: "TimeManagement", icon: Clock },
+      { name: "Resource Allocation", page: "ResourceAllocation", icon: UserCheck },
+      { name: "Resource Monitor", page: "ResourceMonitor", icon: BarChart3 },
     ]
   },
   {
-    label: "Planning",
+    label: "Operations",
     items: [
-      { name: "Resource Allocation", page: "ResourceAllocation", icon: UserCheck },
-      { name: "Resource Monitor", page: "ResourceMonitor", icon: BarChart3 },
+      { name: "Bid Management", page: "BidManagement", icon: FileText },
+      { name: "Projects", page: "Projects", icon: FolderKanban },
+      { name: "Deliverables", page: "DeliveryModule", icon: ClipboardCheck },
       { name: "Workflow", page: "WorkflowDashboard", icon: GitBranch },
     ]
   },
@@ -51,6 +56,12 @@ const navGroups = [
     items: [
       { name: "Data Management", page: "DataManagement", icon: Database },
     ]
+  },
+  {
+    label: "Administration",
+    items: [
+      { name: "Settings", page: "Settings", icon: Settings },
+    ]
   }
 ];
 
@@ -59,7 +70,21 @@ export default function Layout({ children, currentPageName }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout, userRole } = useAuth();  // ← changed
 
-  const allItems = navGroups.flatMap(g => g.items);
+  // Branding (logo + company name) — single app_settings row.
+  const { data: settingsRows = [] } = useQuery({
+    queryKey: ["app_settings"],
+    queryFn: () => base44.entities.AppSettings.list(),
+  });
+  const settings = settingsRows[0] || {};
+  const logoUrl = settings.logo_url;
+  const companyName = settings.company_name || "QMetrix";
+  const companySubtitle = settings.company_subtitle || "Operations Suite";
+
+  // Show only the nav items the current role can read; hide empty groups.
+  const visibleGroups = navGroups
+    .map(g => ({ ...g, items: g.items.filter(i => canRead(userRole, i.page)) }))
+    .filter(g => g.items.length > 0);
+  const allItems = visibleGroups.flatMap(g => g.items);
   const currentItem = allItems.find(i => i.page === currentPageName);
 
   return (
@@ -79,20 +104,22 @@ export default function Layout({ children, currentPageName }) {
           "flex items-center h-14 border-b border-border shrink-0 px-3 gap-3",
           collapsed && "justify-center"
         )}>
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <span className="text-primary-foreground font-bold text-sm">Q</span>
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            {logoUrl
+              ? <img src={logoUrl} alt={companyName} className="h-full w-full object-contain" />
+              : <span className="text-primary-foreground font-bold text-sm">{companyName.charAt(0) || "Q"}</span>}
           </div>
           {!collapsed && (
             <div>
-              <p className="font-bold text-sm leading-tight">QMetrix</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">Operations Suite</p>
+              <p className="font-bold text-sm leading-tight">{companyName}</p>
+              {companySubtitle && <p className="text-[10px] text-muted-foreground leading-tight">{companySubtitle}</p>}
             </div>
           )}
         </div>
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
-          {navGroups.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.label}>
               {!collapsed && (
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 mb-1">{group.label}</p>
@@ -135,7 +162,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-medium truncate">{user.user_metadata?.full_name || user.email}</p>
-                <p className="text-[10px] text-muted-foreground truncate capitalize">{userRole || "user"}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{ROLE_LABELS[userRole] || "User"}</p>
               </div>
             </div>
           )}
@@ -189,7 +216,7 @@ export default function Layout({ children, currentPageName }) {
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">{user.user_metadata?.full_name || "User"}</p>
                       <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                      {userRole && <p className="text-xs leading-none text-muted-foreground capitalize">{userRole}</p>}
+                      {userRole && <p className="text-xs leading-none text-muted-foreground">{ROLE_LABELS[userRole] || userRole}</p>}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

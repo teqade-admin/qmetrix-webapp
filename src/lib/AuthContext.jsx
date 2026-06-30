@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { normalizeRole } from '@/lib/permissions';
 
 const AuthContext = createContext();
 const AUTH_INIT_TIMEOUT_MS = 4000;
@@ -11,19 +12,23 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [userRole, setUserRole] = useState(null);
 
-  const fetchUserRole = async (userId) => {
+  const fetchUserRole = async (userId, email) => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
-          roles (
-            name
-          )
-        `)
-        .eq('user_id', userId);
+      // Primary source of truth: the employee's app_role (System Role).
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('app_role')
+        .or(`user_id.eq.${userId}${email ? `,email.eq.${email}` : ''}`)
+        .limit(1);
+      const empRole = normalizeRole(emp?.[0]?.app_role);
+      if (empRole) { setUserRole(empRole); return; }
 
-      if (error) throw error;
-      setUserRole(data?.[0]?.roles?.name || null);
+      // Fallback: legacy roles/user_roles mapping (keeps the original admin working).
+      const { data } = await supabase
+        .from('user_roles')
+        .select(`roles ( name )`)
+        .eq('user_id', userId);
+      setUserRole(normalizeRole(data?.[0]?.roles?.name) || null);
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole(null);
@@ -41,7 +46,7 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
 
       if (session?.user) {
-        fetchUserRole(session.user.id);
+        fetchUserRole(session.user.id, session.user.email);
       } else {
         setUserRole(null);
       }

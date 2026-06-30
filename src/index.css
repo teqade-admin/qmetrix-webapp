@@ -81,3 +81,35 @@
     font-family: var(--font-body);
   }
 }
+
+/* ── Org chart (Team) — top-down vertical tree ── */
+.org-chart ul {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  padding-top: 22px;
+  list-style: none;
+  margin: 0;
+}
+.org-chart > ul { padding-top: 0; }
+.org-chart li {
+  list-style: none;
+  position: relative;
+  padding: 22px 12px 0 12px;
+  text-align: center;
+}
+.org-chart li::before, .org-chart li::after {
+  content: ""; position: absolute; top: 0; right: 50%;
+  width: 50%; height: 22px; border-top: 1.5px solid hsl(var(--border));
+}
+.org-chart li::after { right: auto; left: 50%; border-left: 1.5px solid hsl(var(--border)); }
+.org-chart li:only-child::before, .org-chart li:only-child::after { display: none; }
+.org-chart li:only-child { padding-top: 22px; }
+.org-chart li:first-child::before, .org-chart li:last-child::after { border: 0 none; }
+.org-chart li:last-child::before { border-right: 1.5px solid hsl(var(--border)); border-radius: 0 6px 0 0; }
+.org-chart li:first-child::after { border-radius: 6px 0 0 0; }
+.org-chart ul ul::before {
+  content: ""; position: absolute; top: 0; left: 50%;
+  width: 0; height: 22px; border-left: 1.5px solid hsl(var(--border));
+}
+.org-chart .org-node { display: inline-flex; }

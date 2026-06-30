@@ -1,0 +1,54 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string"
+    },
+    "contact_person": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "sector": {
+      "type": "string",
+      "enum": [
+        "residential",
+        "commercial",
+        "infrastructure",
+        "healthcare",
+        "education",
+        "industrial",
+        "mixed_use",
+        "government",
+        "other"
+      ]
+    },
+    "address": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "prospect",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}
