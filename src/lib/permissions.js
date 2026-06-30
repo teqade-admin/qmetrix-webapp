@@ -68,6 +68,9 @@ export function levelFor(role, page) {
   if (!r) return NONE;
   if (page === "Profile") return WRITE;        // everyone manages their own profile
   if (page === "Team") return READ;            // team directory is visible to all roles
+  // Shared document repository: everyone can view & upload; only Super Admin deletes.
+  // Folder visibility within the page is further scoped by role (see foldersForRole).
+  if (page === "DataManagement") return r === "super_admin" ? FULL : WRITE;
   const m = MATRIX[r];
   if (!m) return NONE;
   if (m.__default != null) return m.__default;  // super_admin
@@ -90,3 +93,21 @@ export function assignableRoles(role) {
 // Roles that see every employee in the HR "Team" views (vs. just their reports).
 export const MANAGER_ROLES = ["super_admin", "hr_admin", "hr_user"];
 export const isManagerRole = (role) => MANAGER_ROLES.includes(normalizeRole(role));
+
+// Data Management folders, each scoped to the page whose data it holds.
+// "Templates" / "General" are shared with everyone.
+const FOLDER_PAGE = {
+  Projects: "Projects",
+  Bids: "BidManagement",
+  HR: "HRModule",
+  Finance: "Finance",
+  Templates: null,
+  General: null,
+};
+
+/** Folders the role may see in Data Management (shared folders always included). */
+export function foldersForRole(role) {
+  return Object.keys(FOLDER_PAGE).filter(
+    (f) => FOLDER_PAGE[f] === null || canRead(role, FOLDER_PAGE[f])
+  );
+}

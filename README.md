@@ -142,7 +142,7 @@ Access is enforced on three levels — **navigation**, **route guards**, and **a
 | **Operations → Workflow** | ● | — | — | ● | ○ | — | — |
 | **Finance → Cost & Value** | ● | — | — | — | — | ● | ◐ |
 | **Finance → Finance** | ● | — | — | — | — | ● | ◐ |
-| **Data → Data Management** | ● | — | — | — | — | — | — |
+| **Data → Data Management** | ● | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ |
 | **Administration → Settings** | ● | — | — | — | — | — | — |
 
 **Notes**
@@ -150,6 +150,8 @@ Access is enforced on three levels — **navigation**, **route guards**, and **a
 - **Employees scope** is HR/Super‑Admin only. **HR Admin/User** see **every** employee *except* other HR Admins/Users and Super Admins; **Super Admin** sees their indirect reports (never equals/superiors).
 - **Role assignment** (in Employment): Super Admin grants any role; HR Admin grants all except Super Admin; HR User grants only `*_user` roles.
 - Employees can always view/edit their own **Profile**; pay details are never shown on the Team page.
+- **Dashboard** widgets are role-scoped: each card/chart appears only if the role can read its source area (HR roles see staff & onboarding, Ops roles see bids/projects, Finance roles see revenue/invoices; Super Admin sees everything).
+- **Data Management** folders are role-scoped: every role can view & upload, but only sees folders for areas it can read (HR roles → *HR*; Ops → *Projects*/*Bids*; Finance → *Finance*; *Templates*/*General* are shared). Only Super Admin can delete documents.
 
 ---
 

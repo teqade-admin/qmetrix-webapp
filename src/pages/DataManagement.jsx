@@ -19,15 +19,22 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/AuthContext";
+import { foldersForRole, canDelete } from "@/lib/permissions";
 
 const CATEGORIES = ["contract", "proposal", "report", "drawing", "specification", "correspondence", "financial", "hr", "bid", "other"];
-const FOLDERS = ["Projects", "Bids", "HR", "Finance", "Templates", "General"];
 const CAT_COLORS = { contract: "bg-blue-100 text-blue-700", proposal: "bg-violet-100 text-violet-700", report: "bg-amber-100 text-amber-700", drawing: "bg-cyan-100 text-cyan-700", specification: "bg-indigo-100 text-indigo-700", correspondence: "bg-slate-100 text-slate-700", financial: "bg-emerald-100 text-emerald-700", hr: "bg-pink-100 text-pink-700", bid: "bg-orange-100 text-orange-700", other: "bg-slate-100 text-slate-600" };
 
 const defaultForm = { title: "", project_name: "", category: "", folder: "", version: "v1.0", description: "", tags: [], uploaded_by: "" };
 
 export default function DataManagement() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  // Folders this role may see ("Templates"/"General" are shared with everyone).
+  const folders = React.useMemo(() => foldersForRole(userRole), [userRole]);
+  const canRemove = canDelete(userRole, "DataManagement");
+  const inAllowedFolder = React.useCallback(
+    (doc) => { const f = doc.folder || "General"; return folders.some(af => f.includes(af)); },
+    [folders]
+  );
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [folderFilter, setFolderFilter] = useState("all");
@@ -71,16 +78,18 @@ export default function DataManagement() {
   const addTag = () => { if (tagInput.trim()) { setForm(f => ({ ...f, tags: [...(f.tags || []), tagInput.trim()] })); setTagInput(""); } };
   const removeTag = i => setForm(f => ({ ...f, tags: (f.tags || []).filter((_, idx) => idx !== i) }));
 
-  const filtered = documents.filter(d => {
+  // Only documents in folders this role is allowed to see.
+  const visibleDocs = documents.filter(inAllowedFolder);
+
+  const filtered = visibleDocs.filter(d => {
     const ms = (d.title || "").toLowerCase().includes(search.toLowerCase()) || (d.project_name || "").toLowerCase().includes(search.toLowerCase());
     const mc = categoryFilter === "all" || d.category === categoryFilter;
     const mf = folderFilter === "all" || (d.folder || "").includes(folderFilter);
     return ms && mc && mf;
   });
 
-  // Folder structure
-  const folders = ["Projects", "Bids", "HR", "Finance", "Templates", "General"];
-  const docsByFolder = folders.reduce((acc, f) => { acc[f] = documents.filter(d => (d.folder || "General").includes(f)); return acc; }, {});
+  // Folder structure (role-scoped).
+  const docsByFolder = folders.reduce((acc, f) => { acc[f] = visibleDocs.filter(d => (d.folder || "General").includes(f)); return acc; }, {});
 
   return (
     <div className="space-y-4">
@@ -128,7 +137,7 @@ export default function DataManagement() {
                         <td className="p-3">
                           <div className="flex gap-1">
                             {doc.file_url && <a href={doc.file_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-7 w-7"><ExternalLink className="h-3.5 w-3.5" /></Button></a>}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(doc.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(doc.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>
                         </td>
                       </tr>
@@ -177,7 +186,7 @@ export default function DataManagement() {
             <div className="space-y-1.5"><Label>Title *</Label><Input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} required /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Category *</Label><Select value={form.category} onValueChange={v => setForm(f => ({...f, category: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-1.5"><Label>Folder</Label><Select value={form.folder} onValueChange={v => setForm(f => ({...f, folder: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{FOLDERS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5"><Label>Folder</Label><Select value={form.folder} onValueChange={v => setForm(f => ({...f, folder: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{folders.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Project</Label><Select value={form.project_name} onValueChange={v => setForm(f => ({...f, project_name: v}))}><SelectTrigger><SelectValue placeholder="None" /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Version</Label><Input value={form.version} onChange={e => setForm(f => ({...f, version: e.target.value}))} placeholder="v1.0" /></div>
               <div className="space-y-1.5 col-span-2"><Label>Uploaded By</Label><Input value={uploadedBy} readOnly className="bg-muted cursor-not-allowed" /></div>

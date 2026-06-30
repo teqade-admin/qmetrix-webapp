@@ -12,6 +12,7 @@ import { createPageUrl } from "@/utils";
 import { Progress } from "@/components/ui/progress";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { useAuth } from "@/lib/AuthContext";
+import { canRead } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -74,6 +75,29 @@ export default function Dashboard() {
     value: projects.filter(p => p.status === s).length,
   })).filter(d => d.value > 0);
 
+  // Role-scoped dashboard: each widget shows only if the role can read its source page.
+  const showHR = canRead(userRole, "HRModule");
+  const showBids = canRead(userRole, "BidManagement");
+  const showProjects = canRead(userRole, "Projects");
+  const showFinance = canRead(userRole, "Finance") || canRead(userRole, "CostValueDashboard");
+  const showDeliverables = canRead(userRole, "DeliveryModule");
+  const showResource = canRead(userRole, "ResourceAllocation");
+
+  const kpiCards = [
+    showHR && <StatCard key="staff" title="Active Staff" value={activeEmployees} icon={Users} subtitle={`${onboardingCount} onboarding`} color="primary" />,
+    showBids && <StatCard key="bids" title="Active Bids" value={activeBids} icon={FileText} subtitle={`${currency.symbol}${(pipelineValue/1000).toFixed(0)}k pipeline`} color="accent" />,
+    showProjects && <StatCard key="projects" title="Live Projects" value={activeProjects} icon={FolderKanban} subtitle={`${projects.length} total`} color="blue" />,
+    showResource && <StatCard key="util" title="Avg Utilization" value={`${avgUtilization.toFixed(0)}%`} icon={Users} subtitle={`${activeEmployees} staff`} color={avgUtilization > 85 ? "red" : "green"} />,
+    showFinance && <StatCard key="revenue" title="Revenue Paid" value={`${currency.symbol}${(totalRevenue/1000).toFixed(0)}k`} icon={DollarSign} subtitle="All time" color="green" />,
+    showFinance && <StatCard key="outstanding" title="Outstanding" value={`${currency.symbol}${(outstanding/1000).toFixed(0)}k`} icon={AlertTriangle} subtitle={`${overdueInvoices.length} overdue`} color={overdueInvoices.length > 0 ? "red" : "green"} />,
+  ].filter(Boolean);
+
+  // Alerts a role should be shown.
+  const showOverdueAlert = showFinance && overdueInvoices.length > 0;
+  const showApprovalAlert = showDeliverables && pendingApprovals > 0;
+  const showOnboardingAlert = showHR && onboardingCount > 0;
+  const hasAlerts = showOverdueAlert || showApprovalAlert || showOnboardingAlert;
+
   const createDefaultAdmin = async () => {
     setAdminSetup({ loading: true, message: '', error: '' });
     try {
@@ -135,19 +159,16 @@ export default function Dashboard() {
       )}
 
       {/* Top KPI Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard title="Active Staff" value={activeEmployees} icon={Users} subtitle={`${onboardingCount} onboarding`} color="primary" />
-        <StatCard title="Active Bids" value={activeBids} icon={FileText} subtitle={`${currency.symbol}${(pipelineValue/1000).toFixed(0)}k pipeline`} color="accent" />
-        <StatCard title="Live Projects" value={activeProjects} icon={FolderKanban} subtitle={`${projects.length} total`} color="blue" />
-        <StatCard title="Avg Utilization" value={`${avgUtilization.toFixed(0)}%`} icon={Users} subtitle={`${activeEmployees} staff`} color={avgUtilization > 85 ? "red" : "green"} />
-        <StatCard title="Revenue Paid" value={`${currency.symbol}${(totalRevenue/1000).toFixed(0)}k`} icon={DollarSign} subtitle="All time" color="green" />
-        <StatCard title="Outstanding" value={`${currency.symbol}${(outstanding/1000).toFixed(0)}k`} icon={AlertTriangle} subtitle={`${overdueInvoices.length} overdue`} color={overdueInvoices.length > 0 ? "red" : "green"} />
-      </div>
+      {kpiCards.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {kpiCards}
+        </div>
+      )}
 
       {/* Row 2: Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bid Pipeline */}
-        <Card className="lg:col-span-1">
+        {showBids && <Card className="lg:col-span-1">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold">Bid Pipeline</CardTitle>
           </CardHeader>
@@ -163,10 +184,10 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No bids yet</div>}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Projects by Status */}
-        <Card className="lg:col-span-1">
+        {showProjects && <Card className="lg:col-span-1">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold">Project Status</CardTitle>
           </CardHeader>
@@ -193,10 +214,10 @@ export default function Dashboard() {
               </div>
             ) : <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No projects yet</div>}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Financial Overview */}
-        <Card className="lg:col-span-1">
+        {showFinance && <Card className="lg:col-span-1">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold">Financial Overview</CardTitle>
           </CardHeader>
@@ -226,13 +247,13 @@ export default function Dashboard() {
               <Progress value={totalFeeAgreed > 0 ? (outstanding / totalFeeAgreed) * 100 : 0} className="h-2" />
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* Row 3: Projects + Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Active Projects */}
-        <Card>
+        {showProjects && <Card>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Active Projects</CardTitle>
             <Link to={createPageUrl("Projects")} className="text-xs text-primary hover:underline">View all →</Link>
@@ -258,7 +279,7 @@ export default function Dashboard() {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Alerts & Pending Actions */}
         <Card>
@@ -270,7 +291,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="space-y-2">
-              {overdueInvoices.length > 0 && (
+              {showOverdueAlert && (
                 <Link to={createPageUrl("Finance")} className="flex items-center gap-3 p-2.5 rounded-lg bg-red-50 border border-red-100 hover:bg-red-100 transition-colors">
                   <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
                     <DollarSign className="h-4 w-4 text-red-600" />
@@ -281,7 +302,7 @@ export default function Dashboard() {
                   </div>
                 </Link>
               )}
-              {pendingApprovals > 0 && (
+              {showApprovalAlert && (
                 <Link to={createPageUrl("DeliveryModule")} className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-colors">
                   <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
                     <CheckCircle2 className="h-4 w-4 text-amber-600" />
@@ -292,7 +313,7 @@ export default function Dashboard() {
                   </div>
                 </Link>
               )}
-              {onboardingCount > 0 && (
+              {showOnboardingAlert && (
                 <Link to={createPageUrl("HRModule")} className="flex items-center gap-3 p-2.5 rounded-lg bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors">
                   <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
                     <Users className="h-4 w-4 text-blue-600" />
@@ -303,7 +324,7 @@ export default function Dashboard() {
                   </div>
                 </Link>
               )}
-              {overdueInvoices.length === 0 && pendingApprovals === 0 && onboardingCount === 0 && (
+              {!hasAlerts && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 text-emerald-700">
                   <CheckCircle2 className="h-4 w-4" />
                   <p className="text-sm font-medium">All clear — no actions required</p>
@@ -316,7 +337,7 @@ export default function Dashboard() {
 
       {/* Row 4: HR Metrics + Recent Bids */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+        {showHR && <Card>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">HR Metrics</CardTitle>
             <Link to={createPageUrl("HRModule")} className="text-xs text-primary hover:underline">View all →</Link>
@@ -336,9 +357,9 @@ export default function Dashboard() {
               ))}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
-        <Card>
+        {showBids && <Card>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Recent Bids</CardTitle>
             <Link to={createPageUrl("BidManagement")} className="text-xs text-primary hover:underline">View all →</Link>
@@ -360,7 +381,7 @@ export default function Dashboard() {
               {bids.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No bids yet</p>}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
     </div>
   );
