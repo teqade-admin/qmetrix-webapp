@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, Circle, ArrowRight, Clock, Plus, AlertTriangle } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
+import FilterBar from "@/components/shared/FilterBar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 

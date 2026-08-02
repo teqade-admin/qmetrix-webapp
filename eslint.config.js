@@ -38,6 +38,9 @@ export default [
       "no-unused-vars": "off",
       "react/jsx-uses-vars": "error",
       "react/jsx-uses-react": "error",
+      // A component used without being imported builds fine and only fails in
+      // the browser ("X is not defined"), so lint has to be what catches it.
+      "react/jsx-no-undef": "error",
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
         "warn",
