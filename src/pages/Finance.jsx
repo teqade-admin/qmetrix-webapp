@@ -20,6 +20,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
+import { nextInvoiceNumber } from "@/lib/invoiceNumber";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -28,17 +29,6 @@ import {
 const defaultInvoice = { invoice_number: "", project_name: "", client_name: "", amount: "", tax_amount: "", total_amount: "", issue_date: "", due_date: "", status: "draft", description: "", riba_stage: "", billing_hours: "" };
 const defaultExpense = { description: "", project_name: "", category: "", amount: "", date: "", submitted_by: "", status: "pending" };
 const PROVIDER_NAME = "Qmetrix Consultancy";
-
-const getInvoiceSequence = (invoiceNumber) => {
-  const match = String(invoiceNumber || "").match(/\d+/g);
-  if (!match) return 0;
-  return Number(match[match.length - 1]) || 0;
-};
-
-const getNextInvoiceNumber = (invoices) => {
-  const maxInvoiceNumber = invoices.reduce((max, invoice) => Math.max(max, getInvoiceSequence(invoice.invoice_number)), 0);
-  return String(maxInvoiceNumber + 1);
-};
 
 export default function Finance() {
   const { currency } = useCurrency();
@@ -84,7 +74,7 @@ export default function Finance() {
 
   const openNewInvoice = () => {
     setEditingInvoice(null);
-    setInvForm({ ...defaultInvoice, invoice_number: getNextInvoiceNumber(invoices) });
+    setInvForm({ ...defaultInvoice, invoice_number: nextInvoiceNumber(invoices) });
     setInvoiceDialog(true);
   };
   const openEditInvoice = inv => { setEditingInvoice(inv); setInvForm({ ...defaultInvoice, ...inv, amount: inv.amount || "", tax_amount: inv.tax_amount || "", total_amount: inv.total_amount || "", billing_hours: inv.billing_hours || "" }); setInvoiceDialog(true); };
