@@ -94,6 +94,10 @@ export function assignableRoles(role) {
 export const MANAGER_ROLES = ["super_admin", "hr_admin", "hr_user"];
 export const isManagerRole = (role) => MANAGER_ROLES.includes(normalizeRole(role));
 
+// Top of the approval hierarchy: has no approver above them, so they may
+// action their own requests (see LeaveTracker's canSelfApprove).
+export const isSuperAdmin = (role) => normalizeRole(role) === "super_admin";
+
 // Data Management folders, each scoped to the page whose data it holds.
 // "Templates" / "General" are shared with everyone.
 const FOLDER_PAGE = {

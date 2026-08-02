@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Check, X, CalendarDays, Clock, CalendarCheck, CalendarClock, Lock, Search } from "lucide-react";
+import { Plus, Check, X, Trash2, CalendarDays, Clock, CalendarCheck, CalendarClock, Lock, Search } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
-import { format, differenceInBusinessDays, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { workingDaysBetween, workingDaysValue, LEAVE_DATE_ERRORS } from "@/lib/leaveDays";
 
 const LEAVE_TYPES = ["annual", "sick", "maternity", "paternity", "unpaid", "compassionate", "study", "other"];
 
@@ -43,15 +44,18 @@ const leaveTypeColors = {
  * @param {string} currentEmployeeName - resolved full name of the signed-in user.
  * @param {string[]} teamNames         - employee names visible in "team" scope.
  * @param {number} totalLeaves         - annual leave entitlement (days), used for the Self summary.
+ * @param {boolean} canSelfApprove     - allow approving/rejecting your OWN requests in "self" scope.
+ *                                        Super Admin only: they sit at the top of the approval
+ *                                        hierarchy, so nobody else can action their leave.
  */
-export default function LeaveTracker({ employees = [], scope = "all", currentEmployeeName = "", teamNames = [], totalLeaves = 0 }) {
+export default function LeaveTracker({ employees = [], scope = "all", currentEmployeeName = "", teamNames = [], totalLeaves = 0, canSelfApprove = false }) {
   const isSelf = scope === "self";
   const isTeam = scope === "team";
-  const canApprove = scope === "team" || scope === "all";
+  const canApprove = scope === "team" || scope === "all" || (isSelf && canSelfApprove);
   const canRequest = !isTeam; // Team view is approve/reject only.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [rejectId, setRejectId] = useState(null);
+  const [cancelId, setCancelId] = useState(null);
   const [form, setForm] = useState(defaultForm);
   const [formError, setFormError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -72,16 +76,12 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
 
   const createMut = useMutation({ mutationFn: d => base44.entities.LeaveRequest.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setDialogOpen(false); } });
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.LeaveRequest.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setDialogOpen(false); setEditing(null); } });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.LeaveRequest.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setRejectId(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.LeaveRequest.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setCancelId(null); } });
 
   const openNew = () => { setFormError(""); setEditing(null); setForm({ ...defaultForm, employee_name: isSelf ? currentEmployeeName : "" }); setDialogOpen(true); };
   const openEdit = (l) => { setFormError(""); setEditing(l); setForm({ ...defaultForm, ...l }); setDialogOpen(true); };
 
-  const calcDays = (start, end) => {
-    if (!start || !end) return "";
-    const d = differenceInBusinessDays(parseISO(end), parseISO(start)) + 1;
-    return d > 0 ? d : "";
-  };
+  const calcDays = (start, end) => workingDaysValue(start, end);
 
   // Stats
   const pending = leaves.filter(l => l.status === "pending").length;
@@ -101,13 +101,33 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
       return;
     }
 
-    // End date must not be before the start date.
-    if (form.start_date && form.end_date && parseISO(form.end_date) < parseISO(form.start_date)) {
-      setFormError("End date can't be before the start date.");
+    // The dates must yield a real working-day count. Weekend-only ranges and
+    // mistyped years previously slipped through and produced values like
+    // "1 working day" for a Saturday, or 52,179 for a typo'd year.
+    const { days: workingDays, error: dateError } = workingDaysBetween(form.start_date, form.end_date);
+    if (dateError) {
+      setFormError(dateError);
+      return;
+    }
+    if (workingDays == null) {
+      setFormError(LEAVE_DATE_ERRORS.INVALID);
       return;
     }
 
-    const days = Number(form.days_requested) || calcDays(form.start_date, form.end_date) || 1;
+    // Working Days may be trimmed down (a half day, say) but never inflated
+    // beyond what the selected dates actually contain.
+    const requested = form.days_requested === "" || form.days_requested == null
+      ? workingDays
+      : Number(form.days_requested);
+    if (!Number.isFinite(requested) || requested <= 0) {
+      setFormError("Working days must be a positive number.");
+      return;
+    }
+    if (requested > workingDays) {
+      setFormError(`Those dates contain ${workingDays} working day${workingDays === 1 ? "" : "s"}, so you can't request ${requested}.`);
+      return;
+    }
+    const days = requested;
 
     // Self requests can't exceed the remaining balance. When editing a request that
     // already counts toward "pending", add its current days back before comparing.
@@ -201,7 +221,7 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
                   <th className="text-center p-3 font-medium text-muted-foreground">Days</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Reason</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
-                  <th className="p-3 w-28"></th>
+                  <th className={`p-3 ${isSelf && canApprove ? "w-40" : "w-28"}`}></th>
                 </tr>
               </thead>
               <tbody>
@@ -230,7 +250,8 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
                             </Button>
                           </>
                         )}
-                        {/* Only the employee can edit/delete their own request; managers approve/reject only. */}
+                        {/* Only the employee can edit/delete their own request; managers approve/reject only.
+                            In self scope a Super Admin also gets approve/reject above (canSelfApprove). */}
                         {isSelf && (l.status === "approved" ? (
                           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground px-1"><Lock className="h-3 w-3" />Locked</span>
                         ) : (
@@ -238,8 +259,10 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(l)} title="Edit">
                               <CalendarDays className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setRejectId(l.id)} title="Delete">
-                              <X className="h-3.5 w-3.5" />
+                            {/* Trash, not X: X means "reject" on the approval buttons above,
+                                and a Super Admin sees both sets on their own requests. */}
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setCancelId(l.id)} title="Cancel request">
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </>
                         ))}
@@ -336,12 +359,14 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
+      <AlertDialog open={!!cancelId} onOpenChange={() => setCancelId(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Delete Leave Request</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Cancel Leave Request</AlertDialogTitle><AlertDialogDescription>This withdraws your request and cannot be undone.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteMut.mutate(rejectId)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+            {/* "Keep request" rather than "Cancel", which would read as the same
+                action as the destructive button next to it. */}
+            <AlertDialogCancel>Keep request</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteMut.mutate(cancelId)} className="bg-destructive text-destructive-foreground">Cancel request</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

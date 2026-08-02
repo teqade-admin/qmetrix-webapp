@@ -8,7 +8,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import TimesheetView from "@/components/timesheets/TimesheetView";
 import LeaveTracker from "@/components/hr/LeaveTracker";
 import { getSubordinates, getDirectReports, getSubordinatesToDepth, subtreeDepth } from "@/lib/orgHierarchy";
-import { isManagerRole, canWrite, normalizeRole } from "@/lib/permissions";
+import { isManagerRole, canWrite, normalizeRole, isSuperAdmin } from "@/lib/permissions";
 import LevelFilter from "@/components/shared/LevelFilter";
 
 // Default annual leave entitlement (days) when an employee has no explicit allocation.
@@ -73,6 +73,9 @@ export default function TimeManagement() {
 
   const teamCanApprove = teamNames.length > 0;                 // you manage them
   const employeesCanApprove = canWrite(userRole, "TimeManagement"); // HR write
+  // Super Admin tops the approval hierarchy, so their own leave has no other
+  // approver — let them action it from the Self tab.
+  const selfCanApprove = isSuperAdmin(userRole);
 
   // Annual leave entitlement for the signed-in user (per-employee override, else default).
   const selfTotalLeaves = currentEmployee?.annual_leave_entitlement ?? DEFAULT_ANNUAL_LEAVE;
@@ -122,7 +125,7 @@ export default function TimeManagement() {
               {showEmployeesTab && <TabsTrigger value="employees">Employees</TabsTrigger>}
             </TabsList>
             <TabsContent value="self" className="mt-4">
-              <LeaveTracker scope="self" employees={employees} currentEmployeeName={currentEmployeeName} totalLeaves={selfTotalLeaves} />
+              <LeaveTracker scope="self" employees={employees} currentEmployeeName={currentEmployeeName} totalLeaves={selfTotalLeaves} canSelfApprove={selfCanApprove} />
             </TabsContent>
             <TabsContent value="team" className="mt-4 space-y-3">
               {maxTeamLevel > 1 && <div className="flex justify-end"><LevelFilter value={effLevel} onChange={setTeamLevel} maxLevel={maxTeamLevel} /></div>}
