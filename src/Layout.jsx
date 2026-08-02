@@ -6,7 +6,7 @@ import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, Users, FileText, FolderKanban, DollarSign,
   BarChart3, UserCheck, GitBranch, Database, ChevronLeft,
-  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, Bell, User, Settings, Target, Network
+  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, User, Settings, Target, Network
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";  // ← changed
+import NotificationsBell from "@/components/shared/NotificationsBell";
 import { canRead, ROLE_LABELS } from "@/lib/permissions";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 
@@ -196,9 +197,7 @@ export default function Layout({ children, currentPageName }) {
           </div>
           <div className="flex items-center gap-2">
             <CurrencySelector className="h-8 text-xs" />
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-              <Bell className="h-4 w-4" />
-            </Button>
+            <NotificationsBell user={user} userRole={userRole} />
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
