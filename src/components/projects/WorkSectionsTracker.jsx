@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Trash2, GripVertical, CheckCircle2, Circle, Clock, PauseCircle } from "lucide-react";
+import { sectionsProgress, unassignedSections, RIBA_STAGES, stageLabel } from "@/lib/projectProgress";
 
 const STATUS_OPTS = ["not_started", "in_progress", "completed", "on_hold"];
 const STATUS_ICONS = {
@@ -19,20 +20,23 @@ const STATUS_COLORS = {
   on_hold: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
-function newSection() {
-  return { id: crypto.randomUUID(), title: "", start_date: "", end_date: "", progress_percent: 0, status: "not_started", assigned_to: "", notes: "" };
+function newSection(stage = "") {
+  return { id: crypto.randomUUID(), title: "", start_date: "", end_date: "", progress_percent: 0, status: "not_started", assigned_to: "", notes: "", riba_stage: stage };
 }
 
-export default function WorkSectionsTracker({ sections = [], onChange, readOnly = false }) {
+/**
+ * @param {string} defaultStage - RIBA stage assigned to newly added sections
+ *                                (the project's current stage).
+ */
+export default function WorkSectionsTracker({ sections = [], onChange, readOnly = false, defaultStage = "" }) {
   const [expandedId, setExpandedId] = useState(null);
 
   const update = (id, field, value) => onChange(sections.map(s => s.id === id ? { ...s, [field]: value } : s));
-  const add = () => { const s = newSection(); onChange([...sections, s]); setExpandedId(s.id); };
+  const add = () => { const s = newSection(defaultStage); onChange([...sections, s]); setExpandedId(s.id); };
   const remove = (id) => onChange(sections.filter(s => s.id !== id));
 
-  const overallProgress = sections.length > 0
-    ? Math.round(sections.reduce((sum, s) => sum + (Number(s.progress_percent) || 0), 0) / sections.length)
-    : 0;
+  const overallProgress = sectionsProgress(sections) ?? 0;
+  const orphans = unassignedSections(sections);
 
   return (
     <div className="space-y-3">
@@ -48,6 +52,19 @@ export default function WorkSectionsTracker({ sections = [], onChange, readOnly 
         </div>
         {!readOnly && <Button size="sm" variant="outline" onClick={add}><Plus className="h-3.5 w-3.5 mr-1" />Add Section</Button>}
       </div>
+
+      <p className="text-xs text-muted-foreground -mt-1">
+        A work section is a package of work within the project — e.g. substructure, superstructure,
+        M&amp;E, façade, external works. Each one belongs to a RIBA stage; that stage&apos;s progress is
+        the average of its sections, and the project can&apos;t move on until they&apos;re all complete.
+      </p>
+
+      {orphans.length > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+          {orphans.length} section{orphans.length === 1 ? "" : "s"} not assigned to a stage — they count
+          toward no stage&apos;s progress until you set one.
+        </p>
+      )}
 
       {sections.length === 0 && (
         <p className="text-xs text-muted-foreground py-3 text-center border border-dashed rounded-lg">
@@ -78,6 +95,9 @@ export default function WorkSectionsTracker({ sections = [], onChange, readOnly 
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${section.riba_stage ? "bg-slate-50 text-slate-600 border-slate-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                  {section.riba_stage ? stageLabel(section.riba_stage) : "No stage"}
+                </span>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${STATUS_COLORS[section.status]}`}>
                   {STATUS_ICONS[section.status]}
                   {(section.status || "not_started").replace(/_/g, " ")}
@@ -114,6 +134,15 @@ export default function WorkSectionsTracker({ sections = [], onChange, readOnly 
                   {readOnly
                     ? <p className="text-sm">{section.end_date || "—"}</p>
                     : <Input type="date" value={section.end_date} onChange={e => update(section.id, "end_date", e.target.value)} className="h-7 text-xs" />}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">RIBA Stage</label>
+                  {readOnly
+                    ? <p className="text-sm">{section.riba_stage ? stageLabel(section.riba_stage) : "—"}</p>
+                    : <Select value={section.riba_stage || ""} onValueChange={v => update(section.id, "riba_stage", v)}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select stage" /></SelectTrigger>
+                        <SelectContent>{RIBA_STAGES.map(s => <SelectItem key={s} value={s}>{stageLabel(s)}</SelectItem>)}</SelectContent>
+                      </Select>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Progress (%)</label>
