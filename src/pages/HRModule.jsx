@@ -158,6 +158,18 @@ export default function HRModule() {
     },
   });
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data), meta: { successMessage: "Employee updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDialogOpen(false); setEditing(null); } });
+  // Provisioning is best-effort during onboarding, so give HR a way to retry
+  // rather than leaving a new hire permanently unable to sign in. The edge
+  // function is idempotent — it resets the password if the account exists.
+  const provisionMut = useMutation({
+    mutationFn: (emp) => provisionEmployeeAccount({
+      employeeId: emp.id, email: emp.email, fullName: emp.full_name, appRole: emp.app_role,
+    }),
+    meta: {
+      successMessage: (_r, emp) =>
+        `${emp.email} can sign in with the temporary password "${DEFAULT_EMPLOYEE_PASSWORD}"`,
+    },
+  });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), meta: { successMessage: "Employee deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
 
   const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("personal"); setDialogOpen(true); };
@@ -442,6 +454,13 @@ export default function HRModule() {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(emp)}>Open Details</Button>
+                    {canEditEmp && (
+                      <Button variant="outline" size="sm" title="Create or reset this employee's login"
+                        disabled={provisionMut.isPending}
+                        onClick={() => provisionMut.mutate(emp)}>
+                        {provisionMut.isPending ? "…" : "Create login"}
+                      </Button>
+                    )}
                     {canDeleteEmp && <Button variant="outline" size="sm" className="text-destructive" title="Delete" onClick={() => setDeleteId(emp.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                   </div>
                 </Card>
