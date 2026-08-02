@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { canRead } from '@/lib/permissions';
@@ -38,7 +39,27 @@ const Spinner = () => (
 const AuthenticatedApp = () => {
   const { isAuthenticated, isLoadingAuth, isLoadingRole } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const publicPath = location.pathname.toLowerCase();
+
+  // Land on the main page after signing in, rather than resuming whatever route
+  // the URL happened to hold (a deep link, or wherever a session expired).
+  //
+  // Restoring a session on page load also flips isAuthenticated false -> true,
+  // and that must NOT redirect — refreshing on a page should keep you there.
+  // The two are told apart by whether auth had already finished initialising:
+  // on load the flip happens as isLoadingAuth clears, on sign-in it happens
+  // well after.
+  const authInitialised = useRef(false);
+  const wasAuthenticated = useRef(false);
+  useEffect(() => {
+    if (isLoadingAuth) return;
+    if (authInitialised.current && !wasAuthenticated.current && isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+    authInitialised.current = true;
+    wasAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated, isLoadingAuth, navigate]);
 
   if (publicPath === '/reset-password') {
     return <ResetPassword />;

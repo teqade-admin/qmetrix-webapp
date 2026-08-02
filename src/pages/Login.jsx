@@ -6,8 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2 } from 'lucide-react';
-import { useAuth } from '@/lib/AuthContext';
-import { appPath, appUrl } from '@/lib/appUrl';
+import { appUrl } from '@/lib/appUrl';
 import PasswordInput from '@/components/shared/PasswordInput';
 
 export default function Login() {
@@ -16,13 +15,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
-  const { user } = useAuth();
-
-  // If already logged in, redirect
-  if (user) {
-    window.location.href = appPath('/');
-    return null;
-  }
+  // Post-login navigation is handled in App.jsx (router-based, no page reload);
+  // this component only signs the user in.
 
   const handleSubmit = async (e) => {
     e.preventDefault();
