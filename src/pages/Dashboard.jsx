@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { useAuth } from "@/lib/AuthContext";
 import { canRead } from "@/lib/permissions";
+import { grossMargin } from "@/lib/financeMetrics";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const { data: bids = [] } = useQuery({ queryKey: ["bids"], queryFn: () => base44.entities.Bid.list() });
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
   const { data: invoices = [] } = useQuery({ queryKey: ["invoices"], queryFn: () => base44.entities.Invoice.list() });
+  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => base44.entities.Expense.list() });
   const { data: allocations = [] } = useQuery({ queryKey: ["allocations"], queryFn: () => base44.entities.ResourceAllocation.list() });
   const { data: timesheets = [] } = useQuery({ queryKey: ["timesheets"], queryFn: () => base44.entities.Timesheet.list() });
   const { data: deliverables = [] } = useQuery({ queryKey: ["deliverables"], queryFn: () => base44.entities.Deliverable.list() });
@@ -68,6 +70,8 @@ export default function Dashboard() {
   // Financial summary
   const totalFeeAgreed = projects.reduce((s, p) => s + (p.fee_agreed || 0), 0);
   const totalCosts = projects.reduce((s, p) => s + (p.cost_to_date || 0), 0);
+  // Shared definition — see lib/financeMetrics. Must match Cost & Value.
+  const grossMarginPct = grossMargin(projects, expenses);
 
   // Project status breakdown
   const projectStatusData = ["kick_off", "feasibility", "design", "pre_construction", "construction", "post_completion"].map(s => ({
@@ -237,8 +241,8 @@ export default function Dashboard() {
             <div className="pt-2 border-t">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Gross Margin</span>
-                <span className={`font-bold ${totalRevenue > totalCosts ? "text-emerald-600" : "text-red-500"}`}>
-                  {totalRevenue > 0 ? (((totalRevenue - totalCosts) / totalRevenue) * 100).toFixed(1) : 0}%
+                <span className={`font-bold ${(grossMarginPct ?? 0) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                  {grossMarginPct != null ? `${grossMarginPct.toFixed(1)}%` : "—"}
                 </span>
               </div>
             </div>

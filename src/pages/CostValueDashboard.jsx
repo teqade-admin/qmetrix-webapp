@@ -7,6 +7,7 @@ import { DollarSign, TrendingUp, TrendingDown, Target, AlertTriangle } from "luc
 import StatCard from "@/components/shared/StatCard";
 import { Progress } from "@/components/ui/progress";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
+import { grossMargin } from "@/lib/financeMetrics";
 
 export default function CostValueDashboard() {
   const { currency } = useCurrency();
@@ -23,7 +24,8 @@ export default function CostValueDashboard() {
   const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalCosts = expenses.reduce((s, e) => s + (e.amount || 0), 0);
   const outstanding = invoices.filter(i => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const margin = totalPaid > 0 ? ((totalPaid - totalCosts) / totalPaid * 100) : 0;
+  // Shared definition — see lib/financeMetrics. Must match the Dashboard.
+  const margin = grossMargin(projects, expenses);
 
   // Calculate earned value per project
   const projectMetrics = activeProjects.map(p => {
@@ -63,7 +65,7 @@ export default function CostValueDashboard() {
         <StatCard title="Received" value={`${currency.symbol}${(totalPaid/1000).toFixed(0)}k`} icon={TrendingUp} color="green" />
         <StatCard title="Outstanding" value={`${currency.symbol}${(outstanding/1000).toFixed(0)}k`} icon={AlertTriangle} color={outstanding > 0 ? "red" : "green"} />
         <StatCard title="Total Costs" value={`${currency.symbol}${(totalCosts/1000).toFixed(0)}k`} icon={TrendingDown} color="accent" />
-        <StatCard title="Gross Margin" value={`${margin.toFixed(1)}%`} icon={TrendingUp} color={margin >= 20 ? "green" : "red"} trendUp={margin >= 0} />
+        <StatCard title="Gross Margin" value={margin != null ? `${margin.toFixed(1)}%` : "—"} icon={TrendingUp} color={(margin ?? 0) >= 20 ? "green" : "red"} trendUp={(margin ?? 0) >= 0} />
       </div>
 
       {/* Earned Value Summary */}
