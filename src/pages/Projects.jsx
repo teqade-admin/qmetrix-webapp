@@ -29,6 +29,7 @@ import WorkSectionsTracker from "@/components/projects/WorkSectionsTracker";
 import { projectProgress, stageOptions, stageLabel, RIBA_STAGES } from "@/lib/projectProgress";
 import StageStepper from "@/components/projects/StageStepper";
 import DateComparison from "@/components/projects/DateComparison";
+import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 
 const SECTORS = ["residential","commercial","infrastructure","healthcare","education","industrial","mixed_use","government","other"];
 const STATUSES = ["kick_off","feasibility","design","pre_construction","construction","post_completion","closed"];
@@ -45,6 +46,7 @@ const defaultForm = {
 };
 
 export default function Projects() {
+  const { currency } = useCurrency();
   const { userRole } = useAuth();
   const canEdit = canWrite(userRole, "Projects");
   const canRemove = canDelete(userRole, "Projects");
@@ -158,8 +160,8 @@ export default function Projects() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard title="Active Projects" value={activeProjects.length} icon={FolderKanban} color="primary" />
         <StatCard title="Avg Progress" value={avgProgress != null ? `${avgProgress}%` : "—"} icon={TrendingUp} color="green" />
-        <StatCard title="Total Fee Agreed" value={`£${(totalFee/1000).toFixed(0)}k`} icon={DollarSign} color="accent" />
-        <StatCard title="Total Invoiced" value={`£${(totalInvoiced/1000).toFixed(0)}k`} icon={DollarSign} color="blue" />
+        <StatCard title="Total Fee Agreed" value={`${currency.symbol}${(totalFee/1000).toFixed(0)}k`} icon={DollarSign} color="accent" />
+        <StatCard title="Total Invoiced" value={`${currency.symbol}${(totalInvoiced/1000).toFixed(0)}k`} icon={DollarSign} color="blue" />
       </div>
 
       {/* Filters */}
@@ -216,7 +218,7 @@ export default function Projects() {
                       </span>
                     </div>
                     {project.fee_agreed && (
-                      <p className="text-xs text-muted-foreground">£{(project.fee_agreed).toLocaleString()} fee</p>
+                      <p className="text-xs text-muted-foreground">{formatMoney(project.fee_agreed, currency)} fee</p>
                     )}
                   </div>
                 </div>
@@ -296,10 +298,10 @@ export default function Projects() {
 
                     <TabsContent value="financials" className="mt-3">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                        <div><p className="text-xs text-muted-foreground">Project Value</p><p className="font-medium">£{(project.project_value || 0).toLocaleString()}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">£{(project.fee_agreed || 0).toLocaleString()}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Fee Invoiced</p><p className="font-medium">£{(project.fee_invoiced || 0).toLocaleString()}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Cost to Date</p><p className="font-medium">£{(project.cost_to_date || 0).toLocaleString()}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Project Value</p><p className="font-medium">{formatMoney(project.project_value || 0, currency)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">{formatMoney(project.fee_agreed || 0, currency)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Fee Invoiced</p><p className="font-medium">{formatMoney(project.fee_invoiced || 0, currency)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Cost to Date</p><p className="font-medium">{formatMoney(project.cost_to_date || 0, currency)}</p></div>
                       </div>
                       {project.fee_agreed > 0 && (
                         <div className="mt-3 space-y-1">
@@ -398,10 +400,10 @@ export default function Projects() {
 
               <TabsContent value="financials" className="space-y-3 mt-0">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5"><Label>Project Value (£)</Label><Input type="number" value={form.project_value} onChange={e => setForm(f => ({...f, project_value: e.target.value}))} /></div>
-                  <div className="space-y-1.5"><Label>Fee Agreed (£)</Label><Input type="number" value={form.fee_agreed} onChange={e => setForm(f => ({...f, fee_agreed: e.target.value}))} /></div>
-                  <div className="space-y-1.5"><Label>Fee Invoiced (£)</Label><Input type="number" value={form.fee_invoiced} onChange={e => setForm(f => ({...f, fee_invoiced: e.target.value}))} /></div>
-                  <div className="space-y-1.5"><Label>Cost to Date (£)</Label><Input type="number" value={form.cost_to_date} onChange={e => setForm(f => ({...f, cost_to_date: e.target.value}))} /></div>
+                  <div className="space-y-1.5"><Label>Project Value ({currency.symbol})</Label><Input type="number" value={form.project_value} onChange={e => setForm(f => ({...f, project_value: e.target.value}))} /></div>
+                  <div className="space-y-1.5"><Label>Fee Agreed ({currency.symbol})</Label><Input type="number" value={form.fee_agreed} onChange={e => setForm(f => ({...f, fee_agreed: e.target.value}))} /></div>
+                  <div className="space-y-1.5"><Label>Fee Invoiced ({currency.symbol})</Label><Input type="number" value={form.fee_invoiced} onChange={e => setForm(f => ({...f, fee_invoiced: e.target.value}))} /></div>
+                  <div className="space-y-1.5"><Label>Cost to Date ({currency.symbol})</Label><Input type="number" value={form.cost_to_date} onChange={e => setForm(f => ({...f, cost_to_date: e.target.value}))} /></div>
                   <div className="space-y-1.5"><Label>Budgeted Hours</Label><Input type="number" value={form.budgeted_hours} onChange={e => setForm(f => ({...f, budgeted_hours: e.target.value}))} /></div>
                   <div className="space-y-1.5"><Label>Actual Hours</Label><Input type="number" value={form.actual_hours} onChange={e => setForm(f => ({...f, actual_hours: e.target.value}))} /></div>
                 </div>
