@@ -56,13 +56,59 @@ export const unassignedSections = (sections) =>
 export const stageProgress = (sections, stage) =>
   sectionsProgress(sectionsForStage(sections, stage));
 
+// A section only counts as done when it has been filled in, not merely dragged
+// to 100% — a nameless, dateless, unassigned section at 100% says nothing about
+// the work. Kept as label text so the UI can name what's missing.
+export const SECTION_REQUIRED_FIELDS = [
+  { key: "title", label: "title" },
+  { key: "start_date", label: "start date" },
+  { key: "end_date", label: "end date" },
+  { key: "assigned_to", label: "assignee" },
+];
+
+// Project setup that must exist before the project advances at all.
+export const PROJECT_REQUIRED_FIELDS = [
+  { key: "project_manager", label: "project manager" },
+  { key: "fee_agreed", label: "agreed fee" },
+  { key: "start_date", label: "start date" },
+  { key: "end_date", label: "end date" },
+];
+
+const isBlank = (value) => value == null || String(value).trim() === "";
+
+/** Required fields a work section is still missing, by label. */
+export const missingSectionFields = (section) =>
+  SECTION_REQUIRED_FIELDS.filter((f) => isBlank(section?.[f.key])).map((f) => f.label);
+
+/** Required project fields still missing, by label. */
+export const missingProjectFields = (project) =>
+  PROJECT_REQUIRED_FIELDS.filter((f) => isBlank(project?.[f.key])).map((f) => f.label);
+
 /**
- * A stage blocks progress only if it has sections that aren't finished.
+ * A stage blocks progress if it has sections that aren't finished — meaning
+ * every required field filled AND 100% complete.
+ *
  * A stage with no sections is nothing to wait for, so it never blocks.
  */
 export const isStageComplete = (sections, stage) => {
-  const p = stageProgress(sections, stage);
-  return p === null || p === 100;
+  const list = sectionsForStage(sections, stage);
+  if (list.length === 0) return true;
+  if (list.some((s) => missingSectionFields(s).length > 0)) return false;
+  return sectionsProgress(list) === 100;
+};
+
+/** Why a stage isn't done yet, or "" when it is. */
+export const stageBlockReason = (sections, stage) => {
+  const list = sectionsForStage(sections, stage);
+  if (list.length === 0) return "";
+  const gaps = [...new Set(list.flatMap(missingSectionFields))];
+  if (gaps.length > 0) {
+    return `${stageLabel(stage)} has work sections missing ${gaps.join(", ")}.`;
+  }
+  if (sectionsProgress(list) !== 100) {
+    return `Complete the work sections for ${stageLabel(stage)} before moving on.`;
+  }
+  return "";
 };
 
 /**
@@ -82,24 +128,30 @@ export function projectProgress(sections, currentStage, stages = RIBA_STAGES) {
 
 /**
  * Which stages the project may move to, and why not when it may not.
- * Going back is always allowed; going forward is one stage at a time and only
- * once the current stage's sections are done.
  *
+ * Going back is always allowed. Going forward is one stage at a time, and only
+ * once the project's own setup is complete and the current stage's sections are
+ * filled in and finished.
+ *
+ * @param {object} project - needs work_sections, riba_stage and the project fields.
  * @returns {{stage: string, disabled: boolean, reason: string}[]}
  */
-export function stageOptions(sections, currentStage, stages = RIBA_STAGES) {
+export function stageOptions(project, stages = RIBA_STAGES) {
+  const sections = project?.work_sections;
+  const currentStage = project?.riba_stage;
   const idx = stages.indexOf(currentStage);
-  const currentDone = isStageComplete(sections, currentStage);
+
+  const projectGaps = missingProjectFields(project);
+  const blockedReason = projectGaps.length > 0
+    ? `Add the project's ${projectGaps.join(", ")} before moving stage.`
+    : stageBlockReason(sections, currentStage);
+
   return stages.map((stage, i) => {
     if (idx < 0 || i <= idx) return { stage, disabled: false, reason: "" };
     if (i === idx + 1) {
-      return currentDone
-        ? { stage, disabled: false, reason: "" }
-        : {
-            stage,
-            disabled: true,
-            reason: `Complete the work sections for ${stageLabel(currentStage)} before moving on.`,
-          };
+      return blockedReason
+        ? { stage, disabled: true, reason: blockedReason }
+        : { stage, disabled: false, reason: "" };
     }
     return {
       stage,
@@ -109,8 +161,8 @@ export function stageOptions(sections, currentStage, stages = RIBA_STAGES) {
   });
 }
 
-/** Convenience: may the project move from its current stage to `target`? */
-export function canMoveToStage(sections, currentStage, target, stages = RIBA_STAGES) {
-  const opt = stageOptions(sections, currentStage, stages).find((o) => o.stage === target);
+/** Convenience: may the project move to `target` from where it is? */
+export function canMoveToStage(project, target, stages = RIBA_STAGES) {
+  const opt = stageOptions(project, stages).find((o) => o.stage === target);
   return !!opt && !opt.disabled;
 }

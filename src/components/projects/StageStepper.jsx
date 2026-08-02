@@ -11,17 +11,19 @@ import { RIBA_STAGES, stageLabel, stageProgress, stageOptions } from "@/lib/proj
  * project may not move to yet are greyed out; hovering or clicking one explains
  * why (usually: finish the current stage's work sections first).
  *
- * @param {object[]} sections     - the project's work_sections.
- * @param {string} currentStage   - the project's riba_stage.
+ * @param {object} project        - needs work_sections, riba_stage and the
+ *                                  project fields the gate checks.
  * @param {(stage: string) => void} onSelect - called for permitted stages only.
  * @param {boolean} readOnly      - render without allowing a stage change.
  */
-export default function StageStepper({ sections = [], currentStage, onSelect, readOnly = false }) {
+export default function StageStepper({ project, onSelect, readOnly = false }) {
+  const sections = project?.work_sections || [];
+  const currentStage = project?.riba_stage;
   // Which locked stage the user last clicked — clicking should explain itself,
   // not just silently do nothing.
   const [explainingStage, setExplainingStage] = useState(null);
 
-  const options = stageOptions(sections, currentStage);
+  const options = stageOptions(project);
   const currentIdx = RIBA_STAGES.indexOf(currentStage);
 
   return (

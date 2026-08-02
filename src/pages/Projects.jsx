@@ -123,7 +123,7 @@ export default function Projects() {
   // project is exempt — you must be able to enter one that's already underway.
   const formProgress = projectProgress(form.work_sections, form.riba_stage);
   const formStageOptions = editing
-    ? stageOptions(form.work_sections, editing.riba_stage)
+    ? stageOptions({ ...form, riba_stage: editing.riba_stage })
     : RIBA_STAGES.map(stage => ({ stage, disabled: false, reason: "" }));
 
   const filtered = projects.filter(p => {
@@ -252,8 +252,7 @@ export default function Projects() {
                         A stage with unfinished sections locks the ones after it.
                       </p>
                       <StageStepper
-                        sections={project.work_sections || []}
-                        currentStage={project.riba_stage}
+                        project={project}
                         readOnly={!canEdit}
                         onSelect={async (stage) => {
                           await base44.entities.Project.update(project.id, {
