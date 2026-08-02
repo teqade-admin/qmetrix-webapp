@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Circle, Clock, FileCheck, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, FileCheck, AlertCircle, Pencil, Trash2, XCircle, HelpCircle } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
@@ -35,8 +35,27 @@ const OCRA_STEPS = [
 
 const defaultForm = { title: "", project_name: "", riba_stage: "stage_0", deliverable_type: "", due_date: "", originator: "", checker: "", reviewer: "", authoriser: "", overall_status: "not_started", version: "v1.0", comments: "" };
 
+const STEP_DONE = ["approved", "completed"];
+
+// What an OCRA reviewer can do with the step in front of them. Approving moves
+// the deliverable on; the other two send it back, and both require a reason so
+// the author knows what to fix.
+const OCRA_DECISIONS = {
+  approve: { stepStatus: "approved", label: "Approve", verb: "Approved", needsReason: false },
+  clarify: { stepStatus: "clarification", label: "Clarify", verb: "Clarification requested", needsReason: true },
+  reject: { stepStatus: "rejected", label: "Reject", verb: "Rejected", needsReason: true },
+};
+
+// The step awaiting a decision: the first one not yet approved whose
+// predecessors have all been approved.
+const activeStepFor = (d) =>
+  OCRA_STEPS.find((step, i) =>
+    !STEP_DONE.includes(d[step.statusKey]) &&
+    OCRA_STEPS.slice(0, i).every(s => STEP_DONE.includes(d[s.statusKey]))
+  );
+
 export default function DeliveryModule() {
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const canEdit = canWrite(userRole, "DeliveryModule");
   const canRemove = canDelete(userRole, "DeliveryModule");
   const [tab, setTab] = useState("deliverables");
@@ -46,6 +65,9 @@ export default function DeliveryModule() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(defaultForm);
   const [selectedDeliverable, setSelectedDeliverable] = useState(null);
+  // Pending reject/clarify awaiting a reason: { deliverable, step, decision }.
+  const [decision, setDecision] = useState(null);
+  const [reason, setReason] = useState("");
   const queryClient = useQueryClient();
 
   const { data: deliverables = [] } = useQuery({ queryKey: ["deliverables"], queryFn: () => base44.entities.Deliverable.list("-created_date") });
@@ -78,12 +100,50 @@ export default function DeliveryModule() {
     }
   };
 
-  const advanceOCRA = (deliverable, step) => {
-    const updates = { [step.statusKey]: step.statusKey === "authoriser_status" ? "approved" : "approved" };
-    if (step.key === "authoriser") updates.overall_status = "approved";
-    else if (step.key === "originator") updates.overall_status = "in_progress";
-    else if (step.key === "checker") updates.overall_status = "under_review";
+  /**
+   * Record an OCRA decision. Approving advances the workflow; rejecting fails
+   * the deliverable; requesting clarification returns it to the author. The
+   * reason is appended to `comments` with who/when/which step, since there is
+   * no separate audit trail on the deliverable.
+   */
+  const applyOCRADecision = (deliverable, step, decision, reason = "") => {
+    const { stepStatus, verb } = OCRA_DECISIONS[decision];
+    const updates = { [step.statusKey]: stepStatus };
+
+    if (decision === "approve") {
+      if (step.key === "authoriser") updates.overall_status = "approved";
+      else if (step.key === "originator") updates.overall_status = "in_progress";
+      else if (step.key === "checker") updates.overall_status = "under_review";
+    } else if (decision === "reject") {
+      updates.overall_status = "rejected";
+    } else {
+      // Sent back to the author to answer the query.
+      updates.overall_status = "in_progress";
+    }
+
+    const trimmed = reason.trim();
+    if (trimmed) {
+      const who = user?.user_metadata?.full_name || user?.email || "Unknown";
+      const note = `[${format(new Date(), "dd MMM yyyy")}] ${step.label} — ${verb} by ${who}: ${trimmed}`;
+      updates.comments = [deliverable.comments, note].filter(Boolean).join("\n");
+    }
+
     updateMut.mutate({ id: deliverable.id, data: updates });
+  };
+
+  // Reject / Clarify collect a reason before they are applied.
+  const askForReason = (deliverable, step, decision) => {
+    setDecision({ deliverable, step, decision });
+    setReason("");
+  };
+
+  const submitDecision = (e) => {
+    e.preventDefault();
+    if (!decision) return;
+    if (!reason.trim()) return;
+    applyOCRADecision(decision.deliverable, decision.step, decision.decision, reason);
+    setDecision(null);
+    setReason("");
   };
 
   const filtered = deliverables.filter(d => projectFilter === "all" || d.project_name === projectFilter);
@@ -201,16 +261,29 @@ export default function DeliveryModule() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {OCRA_STEPS.map((step, i) => {
                     const status = d[step.statusKey];
-                    const isActive = status === "in_progress" || (status === "pending" && OCRA_STEPS.slice(0, i).every(s => d[s.statusKey] === "approved" || d[s.statusKey] === "completed"));
-                    const isDone = status === "approved" || status === "completed";
+                    const isActive = step.key === activeStepFor(d)?.key;
+                    const isDone = STEP_DONE.includes(status);
+                    const isRejected = status === "rejected";
+                    const needsClarification = status === "clarification";
                     return (
                       <React.Fragment key={step.key}>
-                        <div className={cn("flex flex-col items-center p-2 rounded-lg border min-w-[80px] text-center", isDone ? "bg-emerald-50 border-emerald-200" : isActive ? "bg-amber-50 border-amber-200" : "bg-muted border-border")}>
-                          {isDone ? <CheckCircle2 className="h-4 w-4 text-emerald-600 mb-1" /> : isActive ? <Clock className="h-4 w-4 text-amber-600 mb-1" /> : <Circle className="h-4 w-4 text-muted-foreground mb-1" />}
+                        <div className={cn(
+                          "flex flex-col items-center p-2 rounded-lg border min-w-[80px] text-center",
+                          isDone ? "bg-emerald-50 border-emerald-200"
+                            : isRejected ? "bg-red-50 border-red-200"
+                            : needsClarification ? "bg-orange-50 border-orange-200"
+                            : isActive ? "bg-amber-50 border-amber-200"
+                            : "bg-muted border-border"
+                        )}>
+                          {isDone ? <CheckCircle2 className="h-4 w-4 text-emerald-600 mb-1" />
+                            : isRejected ? <XCircle className="h-4 w-4 text-red-600 mb-1" />
+                            : needsClarification ? <HelpCircle className="h-4 w-4 text-orange-600 mb-1" />
+                            : isActive ? <Clock className="h-4 w-4 text-amber-600 mb-1" />
+                            : <Circle className="h-4 w-4 text-muted-foreground mb-1" />}
                           <p className="text-[10px] font-semibold">{step.label}</p>
                           <p className="text-[10px] text-muted-foreground capitalize">{d[step.key] || "—"}</p>
-                          {isActive && !isDone && (
-                            <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px] px-2" onClick={() => advanceOCRA(d, step)}>Approve</Button>
+                          {(isRejected || needsClarification) && (
+                            <p className="text-[9px] font-medium capitalize text-muted-foreground">{status}</p>
                           )}
                         </div>
                         {i < OCRA_STEPS.length - 1 && <div className="text-muted-foreground text-xs">→</div>}
@@ -218,12 +291,80 @@ export default function DeliveryModule() {
                     );
                   })}
                 </div>
+
+                {/* Decision bar for whichever step is awaiting a call. */}
+                {canEdit && activeStepFor(d) && (
+                  <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t">
+                    <span className="text-xs text-muted-foreground mr-auto">
+                      Awaiting <span className="font-medium text-foreground">{activeStepFor(d).label}</span>
+                      {d[activeStepFor(d).key] ? ` · ${d[activeStepFor(d).key]}` : ""}
+                    </span>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                      onClick={() => applyOCRADecision(d, activeStepFor(d), "approve")}>
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-orange-700 border-orange-200 hover:bg-orange-50"
+                      onClick={() => askForReason(d, activeStepFor(d), "clarify")}>
+                      <HelpCircle className="h-3.5 w-3.5 mr-1" />Clarify
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/5"
+                      onClick={() => askForReason(d, activeStepFor(d), "reject")}>
+                      <XCircle className="h-3.5 w-3.5 mr-1" />Reject
+                    </Button>
+                  </div>
+                )}
+
+                {d.comments && (
+                  <p className="text-[11px] text-muted-foreground mt-2 whitespace-pre-line border-t pt-2">{d.comments}</p>
+                )}
               </Card>
             ))}
             {deliverables.filter(d => ["under_review", "in_progress", "not_started"].includes(d.overall_status)).length === 0 && (
               <Card className="p-8 text-center"><p className="text-muted-foreground">No pending approvals</p></Card>
             )}
           </div>
+
+          {/* Reject / Clarify both need a reason before they're recorded. */}
+          <Dialog open={!!decision} onOpenChange={(o) => { if (!o) { setDecision(null); setReason(""); } }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {decision ? OCRA_DECISIONS[decision.decision].label : ""}
+                  {decision ? ` · ${decision.step.label}` : ""}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={submitDecision} className="space-y-4">
+                <p className="text-sm text-muted-foreground">{decision?.deliverable?.title}</p>
+                <div className="space-y-1.5">
+                  <Label>
+                    {decision?.decision === "reject" ? "Reason for rejection *" : "What needs clarifying? *"}
+                  </Label>
+                  <Textarea
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                    rows={4}
+                    autoFocus
+                    placeholder={decision?.decision === "reject"
+                      ? "Explain what's wrong so the author can correct it…"
+                      : "Describe the query the author needs to answer…"}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Recorded against the deliverable with your name and today&apos;s date.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => { setDecision(null); setReason(""); }}>Cancel</Button>
+                  <Button
+                    type="submit"
+                    disabled={!reason.trim()}
+                    className={decision?.decision === "reject" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+                  >
+                    {decision ? OCRA_DECISIONS[decision.decision].label : "Submit"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
 
