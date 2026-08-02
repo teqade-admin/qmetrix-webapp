@@ -14,7 +14,7 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 | 1 | Refresh/direct URL should not return GitHub 404 | ✅ | `d53d30c`. GitHub Pages has no server-side rewrite, so a deep link asked for a file that didn't exist. Added a `404.html` trampoline that restores the route before React mounts. Also fixed 5 redirects and both Supabase `redirectTo` values that dropped the `/qmetrix-webapp` base path — password reset was broken because of it. |
 | 2 | Restrict OCRA approvals to assigned approvers; add authorization validation and audit logging | 🟡 | `0af2cde`. Ownership enforced: OCRA roles now map to employee IDs (migration `supabase_deliverable_ocra_owners.sql`) and only the assigned employee can action a step. **Audit logging is partial** — reject/clarify append a timestamped, named entry to the deliverable's comments, but approvals are not logged and there is no dedicated audit table. See "Not started". |
 | 3 | Consolidate financial calculations into a single source of truth | 🟡 | `822cc70` introduced `lib/financeMetrics.js` and moved Gross Margin, earned value and cost totals into it. **Dashboard, Projects and Finance still compute their own subtotals** (fee agreed, invoiced, outstanding) independently. Full consolidation is outstanding. |
-| 4 | Projects module currency should use configured AED | ⬜ | Projects hardcodes `£` in 11 places and never reads the currency context, unlike Finance and Cost & Value which use `useCurrency`. |
+| 4 | Projects module currency should use configured AED | ✅ | `af3ad0c`. All 11 hardcoded `£` replaced with the configured currency, including form labels. |
 | 5 | Remove Access Denied flash during initialization | ✅ | `edbd1ff`. `isLoadingAuth` cleared before the role lookup returned, so route guards read a null role and rendered Access Denied for a beat. The router now waits on the role too. |
 | 6 | Project progress showing 0% | ✅ | `6fed8bf`. Progress was a hand-typed field, `NULL` on every project. Now derived: sections → stage → project position on the RIBA ladder. |
 | 7 | HR employees getting deleted when updating | ✅ | `64e454f`. **Nothing was ever deleted.** `onboarding_status` was recomputed on every save, so editing any field demoted seeded employees to "in progress", which the All Employees list hides. Completion is now a milestone that an edit cannot revoke. |
@@ -82,14 +82,14 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 |---|---|---|---|
 | 26 | "% complete" stuck at 0%, zeroing Earned Value | ✅ | `6fed8bf` plus a work-section seed. All 8 projects now report 13–93%, and Cost & Value earned value went from £0 to £11,005,300. |
 | 27 | Gross Margin contradictory (−442.2% vs 99.1%) | ✅ | `822cc70`. Both pages used the same revenue but different cost bases — one used project cost-to-date, the other expense claims. Now one definition on an earned-value basis: **47.7% on both pages**. |
-| 28 | Onboarding can fail to create the login account ("Edge Function returned a non-2xx status code") | ⬜ | The employee record is created and the failure is surfaced, but the new hire cannot sign in and the raw error is shown to HR. Needs investigation of the edge function plus a retry path. |
-| 29 | Notification bell non-functional | ⬜ | Confirmed: the bell is a button with no handler and no panel behind it. Either build notifications or remove the control. |
+| 28 | Onboarding can fail to create the login account ("Edge Function returned a non-2xx status code") | ✅ | `3919f27`. That string is supabase-js's generic wrapper; the function's real reason sat unread on `error.context` and is now surfaced. Added a "Create login" retry on each Onboarding card — the edge function is idempotent. |
+| 29 | Notification bell non-functional | ✅ | `423c30a`. Now shows what is awaiting you — timesheets and leave to approve, deliverables where you own the next OCRA step, overdue invoices — derived from existing data, so no schema change. Scoped by permission and by ownership. |
 | 30 | Invoice # cannot be manually overridden | ⬜ | The field is deliberately read-only so the sequence stays gapless and unique. Allowing an override needs a uniqueness check and a rule for what happens to the auto-sequence. Worth agreeing the intent before changing. |
-| 31 | Expense approvals re-sort the list, so a second click can action the wrong row | ⬜ | **Root cause confirmed:** all 6 expenses share one `created_at`, and the sort has no tiebreaker, so every refetch may return a different order. Affects any bulk-created list, not just expenses. |
+| 31 | Expense approvals re-sort the list, so a second click can action the wrong row | 🟡 | `97513fd`. All 6 expenses share one `created_at` and the sort had no tiebreaker, so ordering was not guaranteed; every list now breaks ties on `id`. **A reorder could not actually be reproduced** with six rows, so this is hardening rather than a confirmed fix. |
 | 32 | No confirmation toast on many actions | ✅ | `b1465b3`. Success confirmations added to 36 of 37 mutations. Also fixed timesheet week-submit, which silently swallowed failures. |
 | 33 | Start Date and other wizard fields not persisted | ✅ | `900b31e`. Audited all 21 fields by round-tripping a full record — every one persists. Fixed three real "looks blank on reopening" bugs: a stored `0` rendered blank, and cleared rates/manager silently kept their old values. The exact `start_date` symptom could not be reproduced; report it again with an employee name if it recurs. |
-| 34 | "Add Section" does nothing; invoice/expense view icon does nothing | ⬜ | Needs reproduction. "Add Section" is hidden without write permission, which may explain part of it; the expense row genuinely has no view action. |
-| 35 | KPI defaults to a data-less quarter, showing "KPI Score 0" | ⬜ | The period selector defaults to the newest period regardless of whether it has data. Should fall back to the most recent period that does. |
+| 34 | "Add Section" does nothing; invoice/expense view icon does nothing | ✅ | `Add Section` sat inside the project edit `<form>` with no `type`, so HTML defaulted it to submit — clicking it saved and closed the dialog instead of adding a section. On expenses the `Receipt` glyph read as "view document" but actually **approved** the expense; it is now a check icon. Invoice PDF generation was an unguarded async call, so any failure was silent — it now reports success or the error. |
+| 35 | KPI defaults to a data-less quarter, showing "KPI Score 0" | ✅ | `328869c`. Of 1000 timesheets **none** fall in the current quarter, so every first scorecard read 0. Now opens on the newest period with data (2026-Q2, 670 rows); an explicit choice still wins. |
 
 ---
 
@@ -97,10 +97,10 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 
 | Status | Count |
 |---|---|
-| ✅ Done | 19 |
+| ✅ Done | 27 |
 | 🟡 Partly done | 3 |
 | ⏸️ Not doing | 1 |
-| ⬜ Not started | 12 |
+| ⬜ Not started | 4 |
 
 Two migrations were applied during this work: `supabase_deliverable_clarification.sql`
 and `supabase_deliverable_ocra_owners.sql`.

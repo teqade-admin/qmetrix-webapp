@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText } from "lucide-react";
+import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 import PageHeader from "@/components/shared/PageHeader";
@@ -21,6 +21,7 @@ import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
 import { nextInvoiceNumber } from "@/lib/invoiceNumber";
+import { toast } from "@/components/ui/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -92,6 +93,19 @@ export default function Finance() {
   const expPager = usePagination(filteredExpenses, 10);
 
   const downloadInvoicePdf = async (invoice) => {
+    try {
+      await buildInvoicePdf(invoice);
+      toast({ title: `Invoice ${invoice.invoice_number} downloaded` });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Could not generate the PDF",
+        description: err?.message || "Unknown error",
+      });
+    }
+  };
+
+  const buildInvoicePdf = async (invoice) => {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -287,7 +301,7 @@ export default function Finance() {
                         <td className="p-3"><StatusBadge status={exp.status} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            {canEdit && exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" }, toastMessage: "Expense approved" })} title="Approve"><Receipt className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" }, toastMessage: "Expense approved" })} title="Approve expense"><CheckCircle2 className="h-3.5 w-3.5" /></Button>}
                             {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditExpense(exp)}><Pencil className="h-3.5 w-3.5" /></Button>}
                             {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "expense", id: exp.id })}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>

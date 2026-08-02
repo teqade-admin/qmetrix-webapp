@@ -50,7 +50,7 @@ export default function WorkSectionsTracker({ sections = [], onChange, readOnly 
             </div>
           )}
         </div>
-        {!readOnly && <Button size="sm" variant="outline" onClick={add}><Plus className="h-3.5 w-3.5 mr-1" />Add Section</Button>}
+        {!readOnly && <Button type="button" size="sm" variant="outline" onClick={add}><Plus className="h-3.5 w-3.5 mr-1" />Add Section</Button>}
       </div>
 
       <p className="text-xs text-muted-foreground -mt-1">
@@ -112,7 +112,7 @@ export default function WorkSectionsTracker({ sections = [], onChange, readOnly 
                   </span>
                 )}
                 {!readOnly && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0"
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0"
                     onClick={e => { e.stopPropagation(); remove(section.id); }}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
