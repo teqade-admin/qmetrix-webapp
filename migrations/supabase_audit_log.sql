@@ -10,19 +10,53 @@
 --
 -- Idempotent — safe to re-run.
 
+-- The base schema (supabase_schema.sql) already ships an unused audit_logs
+-- table with a different shape — user_id/resource/old_values/new_values/
+-- timestamp. So this cannot be a plain CREATE TABLE: on an existing database
+-- "IF NOT EXISTS" skips it and everything after fails on the missing columns.
+-- Add what's missing instead, and leave the legacy columns alone.
 CREATE TABLE IF NOT EXISTS public.audit_logs (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  actor_user_id UUID,
-  actor_employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
-  actor_name TEXT,
-  module TEXT NOT NULL,
-  table_name TEXT NOT NULL,
-  record_id UUID,
-  record_label TEXT,
-  action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete')),
-  changes JSONB NOT NULL DEFAULT '{}'::jsonb
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY
 );
+
+ALTER TABLE public.audit_logs
+  ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS actor_user_id UUID,
+  ADD COLUMN IF NOT EXISTS actor_employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS actor_name TEXT,
+  ADD COLUMN IF NOT EXISTS module TEXT,
+  ADD COLUMN IF NOT EXISTS table_name TEXT,
+  ADD COLUMN IF NOT EXISTS record_id UUID,
+  ADD COLUMN IF NOT EXISTS record_label TEXT,
+  ADD COLUMN IF NOT EXISTS action TEXT,
+  ADD COLUMN IF NOT EXISTS changes JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Legacy columns this feature never populates must not block inserts.
+DO $$
+DECLARE
+  c TEXT;
+BEGIN
+  FOREACH c IN ARRAY ARRAY['resource', 'resource_id', 'old_values', 'new_values', 'user_id', 'timestamp']
+  LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'audit_logs' AND column_name = c) THEN
+      EXECUTE format('ALTER TABLE public.audit_logs ALTER COLUMN %I DROP NOT NULL', c);
+    END IF;
+  END LOOP;
+END $$;
+
+-- Constrain the action, but only if nothing already stored would violate it.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.audit_logs
+     WHERE action IS NOT NULL AND action NOT IN ('create', 'update', 'delete')
+  ) THEN
+    ALTER TABLE public.audit_logs DROP CONSTRAINT IF EXISTS audit_logs_action_check;
+    ALTER TABLE public.audit_logs
+      ADD CONSTRAINT audit_logs_action_check CHECK (action IN ('create', 'update', 'delete'));
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS audit_logs_occurred_at_idx ON public.audit_logs (occurred_at DESC);
 CREATE INDEX IF NOT EXISTS audit_logs_actor_idx ON public.audit_logs (actor_employee_id);
