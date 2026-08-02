@@ -52,6 +52,24 @@ export function periodRange(key) {
   return { start: new Date(yr, 0, 1), end: new Date(yr, 11, 31), label: `${yr}` };
 }
 
+/**
+ * The newest period that actually contains timesheet data, so a scorecard does
+ * not open on an empty current quarter and report a discouraging score of 0.
+ * Falls back to the newest period when there is no data at all.
+ *
+ * @param {{key: string}[]} periods - newest first, from periodOptions().
+ * @param {{date: string}[]} timesheets
+ */
+export function firstPeriodWithData(periods, timesheets) {
+  if (!periods?.length) return null;
+  const rows = Array.isArray(timesheets) ? timesheets : [];
+  const found = periods.find((p) => {
+    const range = periodRange(p.key);
+    return rows.some((t) => withinRange(t?.date, range));
+  });
+  return (found || periods[0]).key;
+}
+
 function withinRange(dateStr, range) {
   if (!dateStr) return false;
   const d = new Date(dateStr);

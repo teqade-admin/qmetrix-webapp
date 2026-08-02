@@ -18,7 +18,7 @@ import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { getSubordinates, getDirectReports, getSubordinatesToDepth, subtreeDepth } from "@/lib/orgHierarchy";
 import { isManagerRole, normalizeRole, canWrite } from "@/lib/permissions";
 import LevelFilter from "@/components/shared/LevelFilter";
-import { computeScorecard, periodOptions, periodRange, resolveKpiConfig } from "@/lib/kpiScorecard";
+import { computeScorecard, firstPeriodWithData, periodOptions, periodRange, resolveKpiConfig } from "@/lib/kpiScorecard";
 import { format } from "date-fns";
 
 const PERF_RATINGS = ["exceptional", "exceeds_expectations", "meets_expectations", "needs_improvement", "unsatisfactory"];
@@ -30,7 +30,10 @@ export default function KPIPerformance() {
   const queryClient = useQueryClient();
 
   const periods = useMemo(() => periodOptions(), []);
-  const [period, setPeriod] = useState(periods[0].key);
+  // Default to the newest period that has data rather than the calendar's
+  // current quarter, which is often empty and made a first scorecard read "0".
+  // A period the user picks themselves always wins.
+  const [pickedPeriod, setPickedPeriod] = useState(null);
   const [section, setSection] = useState("scorecard"); // scorecard | reviews
   const [scoreScope, setScoreScope] = useState("self");
   const [reviewScope, setReviewScope] = useState("self");
@@ -43,6 +46,8 @@ export default function KPIPerformance() {
   const { data: reviews = [] } = useQuery({ queryKey: ["performance_reviews"], queryFn: () => base44.entities.PerformanceReview.list("-created_date") });
 
   const config = resolveKpiConfig(settingsRows[0]?.kpi_config);
+  const period = pickedPeriod ?? firstPeriodWithData(periods, timesheets);
+  const setPeriod = setPickedPeriod;
   const range = useMemo(() => periodRange(period), [period]);
 
   const currentEmployee = useMemo(() => {
