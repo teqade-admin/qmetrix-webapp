@@ -95,7 +95,7 @@ export default function BidManagement() {
       await base44.entities.Bid.update(bidId, sanitizeBidUpdatePayload(bidUpdates));
       return project;
     },
-    meta: { successMessage: (project) => `Bid won — project "${project?.name || "created"}" opened` },
+    meta: { successMessage: (project) => `🎉 Bid won — project "${project?.name || "created"}" opened` },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bids"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });

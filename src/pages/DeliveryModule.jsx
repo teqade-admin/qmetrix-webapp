@@ -157,7 +157,11 @@ export default function DeliveryModule() {
     updateMut.mutate({
       id: deliverable.id,
       data: updates,
-      toastMessage: `${step.label}: ${verb.toLowerCase()}`,
+      // The authoriser's approval completes the whole OCRA chain — worth
+      // marking differently from an intermediate step moving forward.
+      toastMessage: (step.key === "authoriser" && decision === "approve")
+        ? "🎉 Deliverable fully approved"
+        : `${step.label}: ${verb.toLowerCase()}`,
     });
   };
 

@@ -25,7 +25,7 @@ export const queryClientInstance = new QueryClient({
 			const message = mutation?.meta?.successMessage;
 			if (!message) return;
 			const text = typeof message === 'function' ? message(data, variables) : message;
-			if (text) toast({ title: text });
+			if (text) toast({ variant: 'success', title: text });
 		},
 		onError: (error) => {
 			reportError(error, 'Data change failure');

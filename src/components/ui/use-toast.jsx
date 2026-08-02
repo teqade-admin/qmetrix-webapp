@@ -1,8 +1,12 @@
 // Inspired by react-hot-toast library
 import { useState, useEffect } from "react";
 
-const TOAST_LIMIT = 20;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_LIMIT = 4;
+// How long a toast stays on screen, then how long it lingers after dismissal
+// so the exit transition can play. Nothing dismissed toasts automatically
+// before, so they simply stacked up until the limit was hit.
+const TOAST_DURATION = 4000;
+const TOAST_REMOVE_DELAY = 400;
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -133,6 +137,10 @@ function toast({ ...props }) {
       },
     },
   });
+
+  // Auto-dismiss. `duration: 0` opts out for a toast that must be acknowledged.
+  const duration = props.duration ?? TOAST_DURATION;
+  if (duration > 0) setTimeout(dismiss, duration);
 
   return {
     id,

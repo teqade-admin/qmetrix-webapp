@@ -95,7 +95,7 @@ export default function Finance() {
   const downloadInvoicePdf = async (invoice) => {
     try {
       await buildInvoicePdf(invoice);
-      toast({ title: `Invoice ${invoice.invoice_number} downloaded` });
+      toast({ variant: "success", title: `Invoice ${invoice.invoice_number} downloaded` });
     } catch (err) {
       toast({
         variant: "destructive",

@@ -9,11 +9,15 @@ import {
 } from "@/components/ui/toast";
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, dismiss } = useToast();
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {/* `open` is state, not a DOM attribute — a dismissed toast is simply not
+          rendered, so clicking the close button hides it immediately rather
+          than waiting for it to be removed from the queue. */}
+      {toasts.map(function ({ id, title, description, action, open, onOpenChange, ...props }) {
+        if (open === false) return null;
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
@@ -23,7 +27,7 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose />
+            <ToastClose onClick={() => dismiss(id)} />
           </Toast>
         );
       })}

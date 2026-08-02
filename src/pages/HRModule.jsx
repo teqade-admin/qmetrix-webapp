@@ -167,7 +167,7 @@ export default function HRModule() {
     }),
     meta: {
       successMessage: (_r, emp) =>
-        `${emp.email} can sign in with the temporary password "${DEFAULT_EMPLOYEE_PASSWORD}"`,
+        `🎉 ${emp.email} can sign in with the temporary password "${DEFAULT_EMPLOYEE_PASSWORD}"`,
     },
   });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), meta: { successMessage: "Employee deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
