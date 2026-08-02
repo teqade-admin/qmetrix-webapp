@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronRight, ScrollText } from "lucide-react";
+import { ChevronDown, ChevronRight, ScrollText, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
 import FilterBar from "@/components/shared/FilterBar";
 import LevelFilter from "@/components/shared/LevelFilter";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
@@ -31,6 +32,7 @@ const SCOPE_LABELS = {
 
 export default function AuditLog() {
   const { user, userRole } = useAuth();
+  const queryClient = useQueryClient();
   const [scope, setScope] = useState(AUDIT_SCOPES.SELF);
   const [level, setLevel] = useState(0); // 0 = every level below me
   const [module, setModule] = useState("all");
@@ -50,7 +52,12 @@ export default function AuditLog() {
   const me = useMemo(() => {
     if (!user) return null;
     const fullName = user?.user_metadata?.full_name;
-    return employees.find(e => e.email === user.email || (fullName && e.full_name === fullName)) || null;
+    // user_id first — it is the link the audit trigger uses to stamp
+    // actor_employee_id, so matching any other way can leave "My actions" empty.
+    return employees.find(e => e.user_id && e.user_id === user.id)
+      || employees.find(e => e.email && e.email.toLowerCase() === (user.email || "").toLowerCase())
+      || employees.find(e => fullName && e.full_name === fullName)
+      || null;
   }, [user, employees]);
 
   const scopes = useMemo(
@@ -83,10 +90,16 @@ export default function AuditLog() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Audit Log"
-        description="Who changed what, and when"
-      />
+      <PageHeader title="Audit Log" description="Who changed what, and when">
+        {/* Entries arrive from other people's activity, and the app does not
+            refetch on window focus, so make refreshing explicit. */}
+        <Button
+          variant="outline" size="sm" className="gap-1.5"
+          onClick={() => queryClient.invalidateQueries({ queryKey: ["audit_logs"] })}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />Refresh
+        </Button>
+      </PageHeader>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Tabs value={activeScope} onValueChange={setScope}>
