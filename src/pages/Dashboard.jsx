@@ -231,7 +231,8 @@ export default function Dashboard() {
               <Progress value={100} className="h-2" />
             </div>
             <div>
-              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Invoiced</span><span className="font-semibold">{currency.symbol}{(totalRevenue/1000).toFixed(0)}k</span></div>
+              {/* totalRevenue counts paid invoices only — labelling it "Invoiced" overstated collections. */}
+              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Paid</span><span className="font-semibold">{currency.symbol}{(totalRevenue/1000).toFixed(0)}k</span></div>
               <Progress value={totalFeeAgreed > 0 ? (totalRevenue / totalFeeAgreed) * 100 : 0} className="h-2" />
             </div>
             <div>
