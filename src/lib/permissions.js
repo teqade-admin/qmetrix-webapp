@@ -73,6 +73,9 @@ export function levelFor(role, page) {
   if (!r) return NONE;
   if (page === "Profile") return WRITE;        // everyone manages their own profile
   if (page === "Team") return READ;            // team directory is visible to all roles
+  // Everyone can open the audit log; auditScope decides whose entries they see
+  // (own actions, their reporting line, or company-wide for Super Admin).
+  if (page === "AuditLog") return READ;
   // Shared document repository: everyone can view & upload; only Super Admin deletes.
   // Folder visibility within the page is further scoped by role (see foldersForRole).
   if (page === "DataManagement") return r === "super_admin" ? FULL : WRITE;

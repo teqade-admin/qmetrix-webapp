@@ -6,7 +6,7 @@ import { base44 } from "@/api/base44Client";
 import {
   LayoutDashboard, Users, FileText, FolderKanban, DollarSign,
   BarChart3, UserCheck, GitBranch, Database, ChevronLeft,
-  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, User, Settings, Target, Network
+  Menu, LogOut, Clock, ClipboardCheck, ChevronDown, User, Settings, Target, Network, ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +56,7 @@ const navGroups = [
     label: "Data",
     items: [
       { name: "Data Management", page: "DataManagement", icon: Database },
+      { name: "Audit Log", page: "AuditLog", icon: ScrollText },
     ]
   },
   {

@@ -50,6 +50,7 @@
 import BidManagement from './pages/BidManagement';
 import CostValueDashboard from './pages/CostValueDashboard';
 import Dashboard from './pages/Dashboard';
+import AuditLog from './pages/AuditLog';
 import DataManagement from './pages/DataManagement';
 import DeliveryModule from './pages/DeliveryModule';
 import Finance from './pages/Finance';
@@ -70,6 +71,7 @@ export const PAGES = {
     "BidManagement": BidManagement,
     "CostValueDashboard": CostValueDashboard,
     "Dashboard": Dashboard,
+    "AuditLog": AuditLog,
     "DataManagement": DataManagement,
     "DeliveryModule": DeliveryModule,
     "Finance": Finance,

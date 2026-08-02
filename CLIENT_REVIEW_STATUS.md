@@ -12,7 +12,7 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 | # | Item | Status | Notes |
 |---|---|---|---|
 | 1 | Refresh/direct URL should not return GitHub 404 | ✅ | `d53d30c`. GitHub Pages has no server-side rewrite, so a deep link asked for a file that didn't exist. Added a `404.html` trampoline that restores the route before React mounts. Also fixed 5 redirects and both Supabase `redirectTo` values that dropped the `/qmetrix-webapp` base path — password reset was broken because of it. |
-| 2 | Restrict OCRA approvals to assigned approvers; add authorization validation and audit logging | 🟡 | `0af2cde`. Ownership enforced: OCRA roles now map to employee IDs (migration `supabase_deliverable_ocra_owners.sql`) and only the assigned employee can action a step. **Audit logging is partial** — reject/clarify append a timestamped, named entry to the deliverable's comments, but approvals are not logged and there is no dedicated audit table. See "Not started". |
+| 2 | Restrict OCRA approvals to assigned approvers; add authorization validation and audit logging | ✅ | `0af2cde` enforces ownership: OCRA roles map to employee IDs (migration `supabase_deliverable_ocra_owners.sql`) and only the assigned employee can action a step. Audit logging is now covered by the Audit Log module (#20) — the database trigger records every deliverable change, including approvals, with actor and field-level diff. |
 | 3 | Consolidate financial calculations into a single source of truth | 🟡 | `822cc70` introduced `lib/financeMetrics.js` and moved Gross Margin, earned value and cost totals into it. **Dashboard, Projects and Finance still compute their own subtotals** (fee agreed, invoiced, outstanding) independently. Full consolidation is outstanding. |
 | 4 | Projects module currency should use configured AED | ✅ | `af3ad0c`. All 11 hardcoded `£` replaced with the configured currency, including form labels. |
 | 5 | Remove Access Denied flash during initialization | ✅ | `edbd1ff`. `isLoadingAuth` cleared before the role lookup returned, so route guards read a null role and rendered Access Denied for a beat. The router now waits on the role too. |
@@ -67,7 +67,7 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 | # | Item | Status | Notes |
 |---|---|---|---|
 | 19 | Password visibility toggle | ✅ | `3f1505e`. All five password fields, via a shared component. Keyboard reachable and reports state via `aria-pressed`. |
-| 20 | User Management, Reports and Audit Log modules | ⬜ | Three new modules. Largest item on the list; needs scoping before estimating. |
+| 20 | User Management, Reports and Audit Log modules | 🟡 | **Audit Log delivered** — new module under Data (migration `supabase_audit_log.sql`). Capture is a database trigger, so it records every change including ones made outside these screens, with the actual field-level before/after. Scoped by reporting line: own actions, team to any level (L1, L2, … All), and company-wide for Super Admin. Filterable by module, action and free text. **User Management and Reports are still outstanding.** |
 | 21 | Onboarding wizard step-level validation | ⬜ | The wizard lets you advance through all four steps without completing required fields. |
 | 22 | Recruitment / Applicant Tracking module | ⬜ | New module. Largest item alongside #20; needs scoping. |
 | 23 | Filter option in all sections | ✅ | `81187dc`. Added search + filters to Team, Resource Allocation, Resource Monitor, Deliverables, Workflow and Employment via a shared `FilterBar`. |
@@ -97,10 +97,10 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 
 | Status | Count |
 |---|---|
-| ✅ Done | 28 |
+| ✅ Done | 29 |
 | 🟡 Partly done | 2 |
 | ⏸️ Not doing | 1 |
-| ⬜ Not started | 4 |
+| ⬜ Not started | 3 |
 
 Two migrations were applied during this work: `supabase_deliverable_clarification.sql`
 and `supabase_deliverable_ocra_owners.sql`.
