@@ -49,9 +49,12 @@ const HR_READ_FOR_OUTSIDERS = { KPIPerformance: READ, TimeManagement: READ, Reso
 const MATRIX = {
   super_admin: { __default: FULL },
   hr_admin: { ...lvl(HR_PAGES, FULL), Dashboard: READ },
+  // HR User approves, it doesn't administer. Employee records are read-only —
+  // no editing salary, cost rate, system role or onboarding — but TimeManagement
+  // stays WRITE because approving team timesheets and leave depends on it.
   hr_user: {
-    HRModule: WRITE, KPIPerformance: WRITE, TimeManagement: WRITE,
-    ResourceAllocation: WRITE, ResourceMonitor: READ, Dashboard: READ,
+    HRModule: READ, KPIPerformance: READ, TimeManagement: WRITE,
+    ResourceAllocation: READ, ResourceMonitor: READ, Dashboard: READ,
   },
   ops_admin: { ...lvl(OPS_PAGES, FULL), ...HR_READ_FOR_OUTSIDERS, Dashboard: READ },
   ops_user: {
@@ -59,7 +62,9 @@ const MATRIX = {
     ...HR_READ_FOR_OUTSIDERS, Dashboard: READ,
   },
   finance_admin: { ...lvl(FIN_PAGES, FULL), ...HR_READ_FOR_OUTSIDERS, Dashboard: READ },
-  finance_user: { ...lvl(FIN_PAGES, WRITE), ...HR_READ_FOR_OUTSIDERS, Dashboard: READ },
+  // Finance User is view-only on the finance pages: invoices, expenses and
+  // earned value can be read but not created, edited or deleted.
+  finance_user: { ...lvl(FIN_PAGES, READ), ...HR_READ_FOR_OUTSIDERS, Dashboard: READ },
 };
 
 /** Capability level a role has on a page. */
@@ -86,7 +91,7 @@ export function assignableRoles(role) {
   const r = normalizeRole(role);
   if (r === "super_admin") return [...ROLES];
   if (r === "hr_admin") return ROLES.filter(x => x !== "super_admin");
-  if (r === "hr_user") return ROLES.filter(x => x.endsWith("_user")); // *_user only, no admins
+  // HR User no longer edits employee records at all, so it grants no roles.
   return [];
 }
 
