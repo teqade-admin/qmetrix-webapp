@@ -184,3 +184,16 @@ END $$;
 -- The log is append-only from the application's point of view.
 REVOKE UPDATE, DELETE ON public.audit_logs FROM anon, authenticated;
 GRANT SELECT ON public.audit_logs TO anon, authenticated;
+
+-- RLS is enabled on this table by the base schema, but its SELECT policy was
+-- never applied — so the trigger (SECURITY DEFINER, which bypasses RLS) kept
+-- writing rows that no signed-in user could read, and the page looked empty.
+-- A GRANT alone is not enough once RLS is on: a policy has to allow the read.
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can view audit logs" ON public.audit_logs;
+CREATE POLICY "Authenticated users can view audit logs"
+  ON public.audit_logs FOR SELECT TO authenticated USING (true);
+
+-- No INSERT/UPDATE/DELETE policies: writes arrive only through the trigger,
+-- and the absence of a policy is what keeps the log append-only.
