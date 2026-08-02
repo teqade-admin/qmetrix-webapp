@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Users, UserCheck, AlertTriangle, Clock } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
+import FilterBar from "@/components/shared/FilterBar";
 import { cn } from "@/lib/utils";
 
 const COLORS = ["#1e3a5f", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#06b6d4"];
@@ -16,9 +17,12 @@ export default function ResourceMonitor() {
   const { data: allocations = [] } = useQuery({ queryKey: ["allocations"], queryFn: () => base44.entities.ResourceAllocation.list() });
   const { data: timesheets = [] } = useQuery({ queryKey: ["timesheets"], queryFn: () => base44.entities.Timesheet.list() });
 
+  const [search, setSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState("all");
   const activeEmployees = employees.filter(e => e.status === "active");
   const activeAllocations = allocations.filter(a => a.status === "active");
 
+  const departmentOptions = [...new Set(activeEmployees.map(e => e.department).filter(Boolean))].sort();
   const utilization = activeEmployees.map(emp => {
     const empAllocs = activeAllocations.filter(a => a.employee_name === emp.full_name);
     const totalAlloc = empAllocs.reduce((s, a) => s + (a.allocation_percent || 0), 0);
@@ -27,6 +31,15 @@ export default function ResourceMonitor() {
   });
 
   const avgUtil = utilization.length > 0 ? utilization.reduce((s, u) => s + u.totalAllocation, 0) / utilization.length : 0;
+  // Applies to the full staff list below; the charts stay company-wide.
+  const visibleUtilization = utilization.filter(emp => {
+    if (deptFilter !== "all" && emp.department !== deptFilter) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [emp.full_name, emp.role, emp.job_title, ...(emp.projects || []).map(p => p.name)]
+      .some(v => (v || "").toLowerCase().includes(q));
+  });
+
   const overAllocated = utilization.filter(u => u.totalAllocation > 100);
   const underUtilized = utilization.filter(u => u.totalAllocation < 50);
   const fullyAllocated = utilization.filter(u => u.totalAllocation >= 80 && u.totalAllocation <= 100);
@@ -151,7 +164,18 @@ export default function ResourceMonitor() {
       <Card>
         <CardHeader className="py-3 px-4 border-b"><CardTitle className="text-sm font-semibold">All Staff — Real-Time Utilization</CardTitle></CardHeader>
         <CardContent className="p-4 space-y-3">
-          {utilization.sort((a, b) => b.totalAllocation - a.totalAllocation).map(emp => (
+          <FilterBar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search staff by name, role or project…"
+            filters={[{
+              value: deptFilter,
+              onChange: setDeptFilter,
+              allLabel: "All departments",
+              options: departmentOptions,
+            }]}
+          />
+          {visibleUtilization.sort((a, b) => b.totalAllocation - a.totalAllocation).map(emp => (
             <div key={emp.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
               <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">{(emp.full_name || "?").charAt(0)}</div>
               <div className="flex-1 min-w-0">

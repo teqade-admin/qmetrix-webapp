@@ -15,6 +15,7 @@ import { CheckCircle2, Circle, Clock, FileCheck, AlertCircle, Pencil, Trash2, XC
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
+import FilterBar from "@/components/shared/FilterBar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +73,8 @@ export default function DeliveryModule() {
   const canRemove = canDelete(userRole, "DeliveryModule");
   const [tab, setTab] = useState("deliverables");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -173,7 +176,14 @@ export default function DeliveryModule() {
     setReason("");
   };
 
-  const filtered = deliverables.filter(d => projectFilter === "all" || d.project_name === projectFilter);
+  const filtered = deliverables.filter(d => {
+    if (projectFilter !== "all" && d.project_name !== projectFilter) return false;
+    if (statusFilter !== "all" && d.overall_status !== statusFilter) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [d.title, d.project_name, d.deliverable_type, d.version, ...OCRA_STEPS.map(s => d[s.key])]
+      .some(v => (v || "").toLowerCase().includes(q));
+  });
   const byRiba = RIBA_STAGES.reduce((acc, s) => { acc[s] = filtered.filter(d => d.riba_stage === s); return acc; }, {});
 
   const pending = deliverables.filter(d => ["under_review", "in_progress"].includes(d.overall_status)).length;
@@ -188,6 +198,19 @@ export default function DeliveryModule() {
           <SelectContent><SelectItem value="all">All Projects</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
         </Select>
       </PageHeader>
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search deliverables by title, type, version or assignee…"
+        filters={[{
+          value: statusFilter,
+          onChange: setStatusFilter,
+          allLabel: "All statuses",
+          options: ["not_started", "in_progress", "under_review", "approved", "rejected", "issued"],
+          width: "w-44",
+        }]}
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard title="Total" value={deliverables.length} icon={FileCheck} color="primary" />

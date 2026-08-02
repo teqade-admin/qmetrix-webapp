@@ -88,6 +88,8 @@ export default function HRModule() {
   const canEditEmp = canWrite(userRole, "HRModule");
   const canDeleteEmp = canDelete(userRole, "HRModule");
   const [search, setSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState("all");
+  const [empStatusFilter, setEmpStatusFilter] = useState("all");
   const [tab, setTab] = useState("employees");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -294,11 +296,14 @@ export default function HRModule() {
 
   // Only fully-onboarded employees count as part of the workforce / appear in the list.
   const onboardedEmployees = employees.filter(e => e.onboarding_status === "completed");
-  const filtered = onboardedEmployees.filter(e =>
-    (e.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (e.department || "").toLowerCase().includes(search.toLowerCase()) ||
-    (e.role || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = onboardedEmployees.filter(e => {
+    if (deptFilter !== "all" && e.department !== deptFilter) return false;
+    if (empStatusFilter !== "all" && e.status !== empStatusFilter) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [e.full_name, e.department, e.role, e.job_title, e.email]
+      .some(v => (v || "").toLowerCase().includes(q));
+  });
   const empPager = usePagination(filtered, 10);
   // Exclude self and anyone already reporting under this employee (would create a cycle).
   const invalidManagerIds = getInvalidManagerIds(employees, editing?.id);
@@ -340,6 +345,20 @@ export default function HRModule() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
             </div>
+            <Select value={deptFilter} onValueChange={setDeptFilter}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                {DEPARTMENTS.map(d => <SelectItem key={d} value={d} className="capitalize">{d.replace(/_/g, " ")}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={empStatusFilter} onValueChange={setEmpStatusFilter}>
+              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {["active", "on_leave", "terminated"].map(s => <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>)}
+              </SelectContent>
+            </Select>
             {canEditEmp && <Button size="sm" onClick={openNew}><UserPlus className="h-4 w-4 mr-1.5" />Onboard Employee</Button>}
           </div>
         </div>

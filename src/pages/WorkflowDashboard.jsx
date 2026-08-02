@@ -34,6 +34,8 @@ export default function WorkflowDashboard() {
   const { userRole } = useAuth();
   const canEdit = canWrite(userRole, "WorkflowDashboard");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState({});
@@ -46,7 +48,14 @@ export default function WorkflowDashboard() {
   const createMut = useMutation({ mutationFn: d => base44.entities.Milestone.create(d), meta: { successMessage: "Milestone created" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["milestones"] }); setDialogOpen(false); } });
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Milestone.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Milestone updated" }, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["milestones"] }) });
 
-  const filtered = projectFilter === "all" ? milestones : milestones.filter(m => m.project_name === projectFilter);
+  const filtered = milestones.filter(m => {
+    if (projectFilter !== "all" && m.project_name !== projectFilter) return false;
+    if (statusFilter !== "all" && m.status !== statusFilter) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [m.title, m.project_name, m.description, m.owner]
+      .some(v => (v || "").toLowerCase().includes(q));
+  });
   const overdue = filtered.filter(m => m.due_date && new Date(m.due_date) < new Date() && m.status !== "completed");
   const completed = filtered.filter(m => m.status === "completed");
   const pending = filtered.filter(m => m.status !== "completed");
@@ -103,6 +112,19 @@ export default function WorkflowDashboard() {
           {canEdit && <Button size="sm" onClick={openNewMilestone}><Plus className="h-4 w-4 mr-1" /> Milestone</Button>}
         </div>
       </div>
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search milestones by title, owner or project…"
+        filters={[{
+          value: statusFilter,
+          onChange: setStatusFilter,
+          allLabel: "All statuses",
+          options: ["not_started", "in_progress", "completed", "delayed"],
+          width: "w-40",
+        }]}
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard title="Total Milestones" value={filtered.length} icon={Circle} color="primary" />

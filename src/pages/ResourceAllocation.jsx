@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2, Users, UserCheck } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
+import FilterBar from "@/components/shared/FilterBar";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import StatCard from "@/components/shared/StatCard";
@@ -38,6 +39,8 @@ export default function ResourceAllocation() {
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState({});
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const queryClient = useQueryClient();
 
   const { data: allocations = [] } = useQuery({ queryKey: ["allocations"], queryFn: () => base44.entities.ResourceAllocation.list("-created_date") });
@@ -97,6 +100,13 @@ export default function ResourceAllocation() {
   };
 
   const activeAllocations = allocations.filter(a => a.status === "active");
+  const visibleAllocations = allocations.filter(a => {
+    if (statusFilter !== "all" && a.status !== statusFilter) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [a.employee_name, a.project_name, a.role_on_project]
+      .some(v => (v || "").toLowerCase().includes(q));
+  });
   const activeEmployees = employees.filter(e => e.status === "active");
 
   // Resource utilization per employee
@@ -127,7 +137,19 @@ export default function ResourceAllocation() {
           <TabsTrigger value="forecast">Resource Forecast</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="allocations" className="mt-4">
+        <TabsContent value="allocations" className="mt-4 space-y-3">
+          <FilterBar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search by employee, project or role…"
+            filters={[{
+              value: statusFilter,
+              onChange: setStatusFilter,
+              allLabel: "All statuses",
+              options: ["active", "planned", "completed", "cancelled"],
+              width: "w-40",
+            }]}
+          />
           <Card>
             {allocations.length === 0 ? <EmptyState title="No allocations yet" actionLabel={canEdit ? "New Allocation" : undefined} onAction={canEdit ? openNew : undefined} /> : (
               <div className="overflow-x-auto">
@@ -143,7 +165,7 @@ export default function ResourceAllocation() {
                     <th className="p-3 w-20"></th>
                   </tr></thead>
                   <tbody>
-                    {allocations.map(a => (
+                    {visibleAllocations.map(a => (
                       <tr key={a.id} className="border-b hover:bg-muted/20">
                         <td className="p-3 font-medium">{a.employee_name}</td>
                         <td className="p-3 text-muted-foreground">{a.project_name}</td>

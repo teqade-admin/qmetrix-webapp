@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Network, Phone, Plus, Minus } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
+import FilterBar from "@/components/shared/FilterBar";
 import EmptyState from "@/components/shared/EmptyState";
 import LevelFilter from "@/components/shared/LevelFilter";
 import { getDirectReports, subtreeDepth, getSubordinatesToDepth } from "@/lib/orgHierarchy";
@@ -90,6 +91,8 @@ function TreeNode({ emp, employees, leaves, depth, maxLevel, highlight }) {
 export default function Team() {
   const { user } = useAuth();
   const [level, setLevel] = useState(1);
+  const [search, setSearch] = useState("");
+  const [relationFilter, setRelationFilter] = useState("all");
   const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: () => base44.entities.Employee.list() });
   const { data: leaves = [] } = useQuery({ queryKey: ["leaves"], queryFn: () => base44.entities.LeaveRequest.list("-created_date") });
 
@@ -123,6 +126,17 @@ export default function Team() {
     return [...map.values()];
   }, [manager, peers, me, reportsAtLevel]);
 
+  // Roster filtering: free-text over the visible columns, plus relationship.
+  const visibleRoster = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return roster.filter(({ emp, relation }) => {
+      if (relationFilter !== "all" && relation !== relationFilter) return false;
+      if (!q) return true;
+      return [emp.full_name, emp.role, emp.job_title, emp.department, emp.phone]
+        .some(v => (v || "").toLowerCase().includes(q));
+    });
+  }, [roster, search, relationFilter]);
+
   if (!me) {
     return (
       <div className="space-y-5">
@@ -145,7 +159,19 @@ export default function Team() {
         </TabsList>
 
         {/* ── MY TEAM (roster) ── */}
-        <TabsContent value="list" className="mt-4">
+        <TabsContent value="list" className="mt-4 space-y-3">
+          <FilterBar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search by name, role or department…"
+            filters={[{
+              value: relationFilter,
+              onChange: setRelationFilter,
+              allLabel: "All relationships",
+              options: ["Manager", "Peer", "You", "Report", "Sub-report"],
+              width: "w-44",
+            }]}
+          />
           <Card>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -157,7 +183,7 @@ export default function Team() {
                   <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
                 </tr></thead>
                 <tbody>
-                  {roster.map(({ emp, relation }) => (
+                  {visibleRoster.map(({ emp, relation }) => (
                     <tr key={emp.id} className={`border-b hover:bg-muted/20 ${relation === "You" ? "bg-primary/5" : ""}`}>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
