@@ -65,6 +65,13 @@ const makeEntity = (tableName) => ({
       query.order(normalizedOrderBy.column, { ascending: normalizedOrderBy.ascending });
     }
 
+    // Always break ties on a unique column. Rows created in the same statement
+    // share a created_at, and Postgres gives no guaranteed order for equal sort
+    // keys — so a list could come back in a different order after every refetch.
+    // Approving one row then clicking the next could land on a row that had
+    // moved underneath the cursor.
+    query.order('id', { ascending: true });
+
     const { data, error } = await query;
     if (error) throwEntityError(error, tableName, 'List');
     return (data || []).map(normalizeRecord);
