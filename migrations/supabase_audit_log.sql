@@ -74,6 +74,8 @@ DECLARE
   v_actor_name TEXT;
   v_email TEXT;
   v_action TEXT;
+  v_record UUID;
+  v_label TEXT;
 BEGIN
   v_actor_user := auth.uid();
 
@@ -114,6 +116,30 @@ BEGIN
     v_row := to_jsonb(OLD);
   END IF;
 
+  -- Not every table keys on a uuid named "id"; a failed cast here would abort
+  -- the user's write, so never let identifying the record break the operation.
+  BEGIN
+    v_record := NULLIF(v_row ->> 'id', '')::uuid;
+  EXCEPTION WHEN OTHERS THEN
+    v_record := NULL;
+  END;
+
+  v_label := COALESCE(
+    NULLIF(v_row ->> 'full_name', ''),
+    NULLIF(v_row ->> 'name', ''),
+    NULLIF(v_row ->> 'title', ''),
+    NULLIF(v_row ->> 'invoice_number', ''),
+    NULLIF(v_row ->> 'employee_name', ''),
+    NULLIF(v_row ->> 'description', ''),
+    NULLIF(v_row ->> 'project_name', ''),
+    NULLIF(v_row ->> 'company_name', ''),
+    NULLIF(v_row ->> 'email', ''),
+    -- Join tables (role grants, permissions) have no descriptive column, so
+    -- fall back to the key itself rather than logging a blank row.
+    NULLIF(v_row ->> 'id', ''),
+    ''
+  );
+
   INSERT INTO public.audit_logs (
     actor_user_id, actor_employee_id, actor_name,
     module, table_name, record_id, record_label, action, changes
@@ -136,21 +162,16 @@ BEGIN
       WHEN 'documents'            THEN 'Data Management'
       WHEN 'performance_reviews'  THEN 'KPI & Performance'
       WHEN 'app_settings'         THEN 'Settings'
-      ELSE TG_TABLE_NAME
+      WHEN 'users'                THEN 'Access Control'
+      WHEN 'roles'                THEN 'Access Control'
+      WHEN 'user_roles'           THEN 'Access Control'
+      WHEN 'permissions'          THEN 'Access Control'
+      WHEN 'role_permissions'     THEN 'Access Control'
+      ELSE initcap(replace(TG_TABLE_NAME, '_', ' '))
     END,
     TG_TABLE_NAME,
-    NULLIF(v_row ->> 'id', '')::uuid,
-    COALESCE(
-      NULLIF(v_row ->> 'full_name', ''),
-      NULLIF(v_row ->> 'name', ''),
-      NULLIF(v_row ->> 'title', ''),
-      NULLIF(v_row ->> 'invoice_number', ''),
-      NULLIF(v_row ->> 'employee_name', ''),
-      NULLIF(v_row ->> 'description', ''),
-      NULLIF(v_row ->> 'project_name', ''),
-      NULLIF(v_row ->> 'company_name', ''),
-      ''
-    ),
+    v_record,
+    v_label,
     v_action,
     v_changes
   );
@@ -159,26 +180,40 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Attach to every table worth auditing.
+-- Attach to EVERY base table in public, rather than a list that silently goes
+-- stale as tables are added. This is what makes "every action is captured"
+-- true: user_roles and role_permissions — who granted whom what — were missing
+-- from the original list, which is exactly what an audit log exists to record.
+--
+-- audit_logs itself is excluded: auditing the audit table would recurse.
 DO $$
 DECLARE
   t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY[
-    'employees', 'projects', 'invoices', 'expenses', 'deliverables',
-    'timesheets', 'leave_requests', 'milestones', 'resource_allocations',
-    'bids', 'clients', 'documents', 'performance_reviews', 'app_settings'
-  ]
+  FOR t IN
+    SELECT table_name FROM information_schema.tables
+     WHERE table_schema = 'public'
+       AND table_type = 'BASE TABLE'
+       AND table_name <> 'audit_logs'
+     ORDER BY table_name
   LOOP
-    IF EXISTS (SELECT 1 FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = t) THEN
-      EXECUTE format('DROP TRIGGER IF EXISTS audit_%1$s ON public.%1$I', t);
-      EXECUTE format(
-        'CREATE TRIGGER audit_%1$s AFTER INSERT OR UPDATE OR DELETE ON public.%1$I
-           FOR EACH ROW EXECUTE FUNCTION public.record_audit_log()', t
-      );
-    END IF;
+    EXECUTE format('DROP TRIGGER IF EXISTS audit_%1$s ON public.%1$I', t);
+    EXECUTE format(
+      'CREATE TRIGGER audit_%1$s AFTER INSERT OR UPDATE OR DELETE ON public.%1$I
+         FOR EACH ROW EXECUTE FUNCTION public.record_audit_log()', t
+    );
   END LOOP;
+END $$;
+
+-- Report what ended up covered, so a re-run shows the current picture.
+DO $$
+DECLARE
+  n INT;
+BEGIN
+  SELECT count(*) INTO n
+    FROM information_schema.triggers
+   WHERE trigger_schema = 'public' AND trigger_name LIKE 'audit\_%';
+  RAISE NOTICE 'Audit triggers active on % tables', n;
 END $$;
 
 -- The log is append-only from the application's point of view.
