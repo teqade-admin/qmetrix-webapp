@@ -12,8 +12,13 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  // The role is a second, asynchronous lookup after the session resolves. Until
+  // it lands we don't know what the user may see, so route guards must wait —
+  // otherwise they read a null role and flash "Access Denied" on every load.
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   const fetchUserRole = async (userId, email) => {
+    setIsLoadingRole(true);
     try {
       // Primary source of truth: the employee's app_role (System Role).
       const { data: emp } = await supabase
@@ -33,6 +38,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole(null);
+    } finally {
+      setIsLoadingRole(false);
     }
   };
 
@@ -50,6 +57,7 @@ export const AuthProvider = ({ children }) => {
         fetchUserRole(session.user.id, session.user.email);
       } else {
         setUserRole(null);
+        setIsLoadingRole(false);
       }
     };
 
@@ -57,6 +65,8 @@ export const AuthProvider = ({ children }) => {
       if (!isMounted) return;
       setAuthError('Authentication initialization timed out.');
       setIsLoadingAuth(false);
+      // Never leave the app stuck on the spinner if the lookup hangs.
+      setIsLoadingRole(false);
     }, AUTH_INIT_TIMEOUT_MS);
 
     supabase.auth.getSession()
@@ -73,6 +83,7 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
         setUserRole(null);
         setIsLoadingAuth(false);
+        setIsLoadingRole(false);
       })
       .finally(() => {
         window.clearTimeout(initTimeout);
@@ -95,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
     setUserRole(null);
+    setIsLoadingRole(false);
   };
 
   const navigateToLogin = () => {
@@ -110,6 +122,7 @@ export const AuthProvider = ({ children }) => {
       authError,
       appPublicSettings: null,        // No longer needed
       userRole,
+      isLoadingRole,
       logout,
       navigateToLogin,
     }}>

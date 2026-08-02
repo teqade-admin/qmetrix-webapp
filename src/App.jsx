@@ -29,8 +29,14 @@ const Guarded = ({ page, children }) => {
   return canRead(userRole, page) ? children : <AccessDenied />;
 };
 
+const Spinner = () => (
+  <div className="fixed inset-0 flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+  </div>
+);
+
 const AuthenticatedApp = () => {
-  const { isAuthenticated, isLoadingAuth } = useAuth();
+  const { isAuthenticated, isLoadingAuth, isLoadingRole } = useAuth();
   const location = useLocation();
   const publicPath = location.pathname.toLowerCase();
 
@@ -39,15 +45,18 @@ const AuthenticatedApp = () => {
   }
 
   if (isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <Spinner />;
   }
 
   if (!isAuthenticated) {
     return <Login />;
+  }
+
+  // Signed in, but the role lookup is still in flight. Rendering now would let
+  // the route guards read a null role and flash "Access Denied" before the real
+  // page appears.
+  if (isLoadingRole) {
+    return <Spinner />;
   }
 
   return (
