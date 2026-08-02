@@ -159,7 +159,9 @@ export default function HRModule() {
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
 
   const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("personal"); setDialogOpen(true); };
-  const openEdit = (e) => { setEditing(e); setForm({ ...defaultForm, ...e, hourly_rate: e.hourly_rate || "", cost_rate: e.cost_rate || "", salary: e.salary || "", kpi_score: e.kpi_score || "", contracts: e.contracts || [], documents: e.documents || [], allocated_projects: e.allocated_projects || [] }); setFormTab("personal"); setDialogOpen(true); };
+  // `?? ""` not `|| ""`: a stored 0 is a real value, and `||` blanked it in the
+  // form, so reopening a record showed an empty rate or salary.
+  const openEdit = (e) => { setEditing(e); setForm({ ...defaultForm, ...e, hourly_rate: e.hourly_rate ?? "", cost_rate: e.cost_rate ?? "", salary: e.salary ?? "", kpi_score: e.kpi_score ?? "", contracts: e.contracts || [], documents: e.documents || [], allocated_projects: e.allocated_projects || [] }); setFormTab("personal"); setDialogOpen(true); };
   const openDetail = (e) => { setSelectedEmp(e); setDetailTab("personal"); };
 
   // ── File uploads (contract + documents) → PRIVATE "employee-docs" bucket ──
@@ -250,14 +252,21 @@ export default function HRModule() {
       ...form,
       phone: emptyToNull(form.phone),
       job_title: emptyToNull(form.job_title),
-      hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
-      cost_rate: form.cost_rate ? Number(form.cost_rate) : undefined,
-      salary: form.salary ? Number(form.salary) : undefined,
+      // null, not undefined: undefined is stripped from the write payload, so a
+      // cleared rate or salary silently kept its old value.
+      hourly_rate: form.hourly_rate !== "" && form.hourly_rate != null ? Number(form.hourly_rate) : null,
+      cost_rate: form.cost_rate !== "" && form.cost_rate != null ? Number(form.cost_rate) : null,
+      salary: form.salary !== "" && form.salary != null ? Number(form.salary) : null,
       start_date: form.start_date || null,
-      kpi_score: form.kpi_score ? Number(form.kpi_score) : undefined,
+      kpi_score: form.kpi_score !== "" && form.kpi_score != null ? Number(form.kpi_score) : null,
       performance_rating: form.performance_rating || null,
       manager_id: form.manager_id || null,
-      manager_name: emptyToNull(employees.find(e => e.id === form.manager_id)?.full_name),
+      // Must resolve to null rather than undefined when the manager is cleared:
+      // undefined is stripped from the write payload, which left the old
+      // manager_name on the record while manager_id was nulled.
+      manager_name: form.manager_id
+        ? (employees.find(e => e.id === form.manager_id)?.full_name ?? null)
+        : null,
       contracts: form.contracts || [],
       documents: form.documents || [],
       allocated_projects: form.allocated_projects || [],
