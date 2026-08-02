@@ -85,6 +85,7 @@ export default function KPIPerformance() {
   const saveMut = useMutation({
     mutationFn: async ({ existing, data }) =>
       existing ? base44.entities.PerformanceReview.update(existing.id, data) : base44.entities.PerformanceReview.create(data),
+    meta: { successMessage: (_r, v) => v?.existing ? "Review updated" : "Review recorded" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["performance_reviews"] }); setReviewEmp(null); },
   });
 

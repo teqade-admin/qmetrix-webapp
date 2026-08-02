@@ -71,16 +71,19 @@ export default function Projects() {
 
   const createMut = useMutation({
     mutationFn: d => base44.entities.Project.create(d),
+    meta: { successMessage: "Project created" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDialogOpen(false); }
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Project.update(id, data),
+    meta: { successMessage: (_r, v) => v?.toastMessage || "Project updated" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDialogOpen(false); setEditing(null); }
   });
 
   const deleteMut = useMutation({
     mutationFn: id => base44.entities.Project.delete(id),
+    meta: { successMessage: "Project deleted" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDeleteId(null); }
   });
 
@@ -254,12 +257,15 @@ export default function Projects() {
                       <StageStepper
                         project={project}
                         readOnly={!canEdit}
-                        onSelect={async (stage) => {
-                          await base44.entities.Project.update(project.id, {
-                            riba_stage: stage,
-                            progress_percent: projectProgress(project.work_sections, stage),
+                        onSelect={(stage) => {
+                          updateMut.mutate({
+                            id: project.id,
+                            data: {
+                              riba_stage: stage,
+                              progress_percent: projectProgress(project.work_sections, stage),
+                            },
+                            toastMessage: `Moved to ${stageLabel(stage)}`,
                           });
-                          queryClient.invalidateQueries({ queryKey: ["projects"] });
                         }}
                       />
                     </TabsContent>
@@ -272,14 +278,17 @@ export default function Projects() {
                       <WorkSectionsTracker
                         sections={project.work_sections || []}
                         defaultStage={project.riba_stage}
-                        onChange={async (updated) => {
+                        onChange={(updated) => {
                           // Progress is derived from the sections, so keep the
                           // stored percentage in step on every edit.
-                          await base44.entities.Project.update(project.id, {
-                            work_sections: updated,
-                            progress_percent: projectProgress(updated, project.riba_stage),
+                          updateMut.mutate({
+                            id: project.id,
+                            data: {
+                              work_sections: updated,
+                              progress_percent: projectProgress(updated, project.riba_stage),
+                            },
+                            toastMessage: "Work sections saved",
                           });
-                          queryClient.invalidateQueries({ queryKey: ["projects"] });
                         }}
                         readOnly={!canEdit}
                       />

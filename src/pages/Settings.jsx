@@ -49,6 +49,7 @@ export default function Settings() {
 
   const saveMut = useMutation({
     mutationFn: (data) => base44.entities.AppSettings.update(settings.id, data),
+    meta: { successMessage: "Settings saved" },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["app_settings"] });
       setSaved(true);

@@ -52,8 +52,8 @@ export default function DataManagement() {
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
   const uploadedBy = user?.user_metadata?.full_name || user?.email || "";
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.Document.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setDialogOpen(false); setFile(null); } });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.Document.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setDeleteId(null); } });
+  const createMut = useMutation({ mutationFn: d => base44.entities.Document.create(d), meta: { successMessage: "Document uploaded" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setDialogOpen(false); setFile(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.Document.delete(id), meta: { successMessage: "Document deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["documents"] }); setDeleteId(null); } });
 
   const handleUpload = async (e) => {
     e.preventDefault();

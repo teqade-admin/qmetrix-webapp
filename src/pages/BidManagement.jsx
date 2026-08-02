@@ -81,12 +81,12 @@ export default function BidManagement() {
   const toBase = (amount, cur) => convertToBase(amount, cur || baseCurrency, baseCurrency, rates);
   const currencyObj = (code) => CURRENCIES.find(c => c.code === code) || baseCurrencyObj;
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.Bid.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDialogOpen(false); } });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Bid.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDialogOpen(false); setEditingBid(null); } });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.Bid.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDeleteId(null); } });
+  const createMut = useMutation({ mutationFn: d => base44.entities.Bid.create(d), meta: { successMessage: "Bid created" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDialogOpen(false); } });
+  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Bid.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Bid updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDialogOpen(false); setEditingBid(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.Bid.delete(id), meta: { successMessage: "Bid deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDeleteId(null); } });
 
-  const clientCreateMut = useMutation({ mutationFn: d => base44.entities.Client.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientFormOpen(false); setEditingClient(null); } });
-  const clientUpdateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Client.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientFormOpen(false); setEditingClient(null); } });
+  const clientCreateMut = useMutation({ mutationFn: d => base44.entities.Client.create(d), meta: { successMessage: "Client onboarded" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientFormOpen(false); setEditingClient(null); } });
+  const clientUpdateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Client.update(id, data), meta: { successMessage: "Client updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientFormOpen(false); setEditingClient(null); } });
 
   const kickOffMut = useMutation({
     mutationFn: async ({ bidId, projectData, bidUpdateData }) => {
@@ -95,6 +95,7 @@ export default function BidManagement() {
       await base44.entities.Bid.update(bidId, sanitizeBidUpdatePayload(bidUpdates));
       return project;
     },
+    meta: { successMessage: (project) => `Bid won — project "${project?.name || "created"}" opened` },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bids"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });

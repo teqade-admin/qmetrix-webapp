@@ -43,8 +43,8 @@ export default function WorkflowDashboard() {
   const { data: milestones = [] } = useQuery({ queryKey: ["milestones"], queryFn: () => base44.entities.Milestone.list("-created_date") });
   const { data: deliverables = [] } = useQuery({ queryKey: ["deliverables"], queryFn: () => base44.entities.Deliverable.list() });
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.Milestone.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["milestones"] }); setDialogOpen(false); } });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Milestone.update(id, data), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["milestones"] }) });
+  const createMut = useMutation({ mutationFn: d => base44.entities.Milestone.create(d), meta: { successMessage: "Milestone created" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["milestones"] }); setDialogOpen(false); } });
+  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Milestone.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Milestone updated" }, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["milestones"] }) });
 
   const filtered = projectFilter === "all" ? milestones : milestones.filter(m => m.project_name === projectFilter);
   const overdue = filtered.filter(m => m.due_date && new Date(m.due_date) < new Date() && m.status !== "completed");

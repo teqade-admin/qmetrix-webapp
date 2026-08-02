@@ -52,12 +52,12 @@ export default function Finance() {
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
   const { data: timesheets = [] } = useQuery({ queryKey: ["timesheets"], queryFn: () => base44.entities.Timesheet.list() });
 
-  const invCreate = useMutation({ mutationFn: d => base44.entities.Invoice.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); setInvoiceDialog(false); } });
-  const invUpdate = useMutation({ mutationFn: ({ id, data }) => base44.entities.Invoice.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); setInvoiceDialog(false); setEditingInvoice(null); } });
-  const invDelete = useMutation({ mutationFn: id => base44.entities.Invoice.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); setDeleteTarget(null); } });
-  const expCreate = useMutation({ mutationFn: d => base44.entities.Expense.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setExpenseDialog(false); } });
-  const expUpdate = useMutation({ mutationFn: ({ id, data }) => base44.entities.Expense.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setExpenseDialog(false); setEditingExpense(null); } });
-  const expDelete = useMutation({ mutationFn: id => base44.entities.Expense.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDeleteTarget(null); } });
+  const invCreate = useMutation({ mutationFn: d => base44.entities.Invoice.create(d), meta: { successMessage: "Invoice created" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); setInvoiceDialog(false); } });
+  const invUpdate = useMutation({ mutationFn: ({ id, data }) => base44.entities.Invoice.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Invoice updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); setInvoiceDialog(false); setEditingInvoice(null); } });
+  const invDelete = useMutation({ mutationFn: id => base44.entities.Invoice.delete(id), meta: { successMessage: "Invoice deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); setDeleteTarget(null); } });
+  const expCreate = useMutation({ mutationFn: d => base44.entities.Expense.create(d), meta: { successMessage: "Expense submitted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setExpenseDialog(false); } });
+  const expUpdate = useMutation({ mutationFn: ({ id, data }) => base44.entities.Expense.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Expense updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setExpenseDialog(false); setEditingExpense(null); } });
+  const expDelete = useMutation({ mutationFn: id => base44.entities.Expense.delete(id), meta: { successMessage: "Expense deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDeleteTarget(null); } });
 
   const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
@@ -287,7 +287,7 @@ export default function Finance() {
                         <td className="p-3"><StatusBadge status={exp.status} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            {canEdit && exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" } })} title="Approve"><Receipt className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" }, toastMessage: "Expense approved" })} title="Approve"><Receipt className="h-3.5 w-3.5" /></Button>}
                             {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditExpense(exp)}><Pencil className="h-3.5 w-3.5" /></Button>}
                             {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "expense", id: exp.id })}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>

@@ -87,9 +87,11 @@ export default function DeliveryModule() {
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
   const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: () => base44.entities.Employee.list() });
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.Deliverable.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDialogOpen(false); } });
+  const createMut = useMutation({ mutationFn: d => base44.entities.Deliverable.create(d), meta: { successMessage: "Deliverable created" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDialogOpen(false); } });
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Deliverable.update(id, data),
+    // Serves edits and every OCRA decision, so the caller names the action.
+    meta: { successMessage: (_r, v) => v?.toastMessage || "Deliverable updated" },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["deliverables"] });
       setDialogOpen(false);
@@ -99,7 +101,7 @@ export default function DeliveryModule() {
       }
     }
   });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.Deliverable.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDeleteId(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.Deliverable.delete(id), meta: { successMessage: "Deliverable deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDeleteId(null); } });
 
   // Resolve the signed-in user to their employee record — OCRA steps are owned
   // by an employee id, so without this nobody can be matched to a step.
@@ -149,7 +151,11 @@ export default function DeliveryModule() {
       updates.comments = [deliverable.comments, note].filter(Boolean).join("\n");
     }
 
-    updateMut.mutate({ id: deliverable.id, data: updates });
+    updateMut.mutate({
+      id: deliverable.id,
+      data: updates,
+      toastMessage: `${step.label}: ${verb.toLowerCase()}`,
+    });
   };
 
   // Reject / Clarify collect a reason before they are applied.

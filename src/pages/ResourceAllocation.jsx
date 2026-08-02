@@ -45,9 +45,9 @@ export default function ResourceAllocation() {
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
   const { data: bids = [] } = useQuery({ queryKey: ["bids"], queryFn: () => base44.entities.Bid.list() });
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.ResourceAllocation.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDialogOpen(false); } });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.ResourceAllocation.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDialogOpen(false); setEditing(null); } });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.ResourceAllocation.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDeleteId(null); } });
+  const createMut = useMutation({ mutationFn: d => base44.entities.ResourceAllocation.create(d), meta: { successMessage: "Allocation created" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDialogOpen(false); } });
+  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.ResourceAllocation.update(id, data), meta: { successMessage: "Allocation updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDialogOpen(false); setEditing(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.ResourceAllocation.delete(id), meta: { successMessage: "Allocation removed" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["allocations"] }); setDeleteId(null); } });
 
   const openNew = () => { setEditing(null); setForm(defaultForm); setFormErrors({}); setDialogOpen(true); };
   const openEdit = a => { setEditing(a); setForm({ ...defaultForm, ...a, allocation_percent: a.allocation_percent || "", hours_budgeted: a.hours_budgeted || "", hours_spent: a.hours_spent || "" }); setFormErrors({}); setDialogOpen(true); };

@@ -97,15 +97,29 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
 
   const createMut = useMutation({
     mutationFn: d => base44.entities.Timesheet.create(d),
+    meta: { successMessage: "Timesheet entry added" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["timesheets"] }); setDialogOpen(false); }
   });
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Timesheet.update(id, data),
+    // One mutation serves edit, approve and reject, so the caller supplies the wording.
+    meta: { successMessage: (_res, vars) => vars?.toastMessage || "Timesheet updated" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["timesheets"] }); setDialogOpen(false); setEditing(null); }
   });
   const deleteMut = useMutation({
     mutationFn: id => base44.entities.Timesheet.delete(id),
+    meta: { successMessage: "Timesheet entry deleted" },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["timesheets"] }); setDeleteId(null); }
+  });
+  // Was a bare Promise.all: no toast on success and, worse, a failure was
+  // swallowed entirely. As a mutation it gets both, via the global handlers.
+  const submitWeekMut = useMutation({
+    mutationFn: (ids) => Promise.all(ids.map(id => base44.entities.Timesheet.update(id, { status: "submitted" }))),
+    meta: {
+      successMessage: (_res, ids) =>
+        `${ids.length} timesheet ${ids.length === 1 ? "entry" : "entries"} submitted for approval`,
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timesheets"] }),
   });
 
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -195,18 +209,17 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
 
   const submitWeek = () => {
     const draftIds = weekTimesheets.filter(t => t.status === "draft").map(t => t.id);
-    Promise.all(draftIds.map(id => base44.entities.Timesheet.update(id, { status: "submitted" })))
-      .then(() => queryClient.invalidateQueries({ queryKey: ["timesheets"] }));
+    if (draftIds.length) submitWeekMut.mutate(draftIds);
   };
 
   const approveTimesheet = (id) => {
     if (!canApprove) return;
-    updateMut.mutate({ id, data: { status: "approved", approved_by: currentEmployeeName } });
+    updateMut.mutate({ id, data: { status: "approved", approved_by: currentEmployeeName }, toastMessage: "Timesheet approved" });
   };
 
   const rejectTimesheet = (id) => {
     if (!canApprove) return;
-    updateMut.mutate({ id, data: { status: "rejected", approved_by: currentEmployeeName } });
+    updateMut.mutate({ id, data: { status: "rejected", approved_by: currentEmployeeName }, toastMessage: "Timesheet rejected" });
   };
 
   const weekHasDrafts = weekTimesheets.some(t => t.status === "draft");

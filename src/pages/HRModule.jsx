@@ -155,8 +155,8 @@ export default function HRModule() {
       setProvisionError(dup ? "An employee with this email already exists (it may be from a previous attempt — check the Onboarding tab)." : error.message);
     },
   });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDialogOpen(false); setEditing(null); } });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
+  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data), meta: { successMessage: "Employee updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDialogOpen(false); setEditing(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), meta: { successMessage: "Employee deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
 
   const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("personal"); setDialogOpen(true); };
   // `?? ""` not `|| ""`: a stored 0 is a real value, and `||` blanked it in the

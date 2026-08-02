@@ -74,9 +74,9 @@ export default function LeaveTracker({ employees = [], scope = "all", currentEmp
     return allLeaves;
   }, [allLeaves, isSelf, scope, currentEmployeeName, teamNames]);
 
-  const createMut = useMutation({ mutationFn: d => base44.entities.LeaveRequest.create(d), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setDialogOpen(false); } });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.LeaveRequest.update(id, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setDialogOpen(false); setEditing(null); } });
-  const deleteMut = useMutation({ mutationFn: id => base44.entities.LeaveRequest.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setCancelId(null); } });
+  const createMut = useMutation({ mutationFn: d => base44.entities.LeaveRequest.create(d), meta: { successMessage: "Leave request submitted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setDialogOpen(false); } });
+  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.LeaveRequest.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Leave request updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setDialogOpen(false); setEditing(null); } });
+  const deleteMut = useMutation({ mutationFn: id => base44.entities.LeaveRequest.delete(id), meta: { successMessage: "Leave request cancelled" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["leaves"] }); setCancelId(null); } });
 
   const openNew = () => { setFormError(""); setEditing(null); setForm({ ...defaultForm, employee_name: isSelf ? currentEmployeeName : "" }); setDialogOpen(true); };
   const openEdit = (l) => { setFormError(""); setEditing(l); setForm({ ...defaultForm, ...l }); setDialogOpen(true); };
