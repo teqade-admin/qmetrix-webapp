@@ -262,7 +262,14 @@ export default function HRModule() {
       documents: form.documents || [],
       allocated_projects: form.allocated_projects || [],
       onboarding_checklist: checklist,
-      onboarding_status: deriveOnboardingStatus(checklist),
+      // Onboarding completion is a milestone, not a live calculation. Deriving it
+      // afresh on every save meant editing an unrelated field (a phone number, a
+      // manager) could demote an onboarded employee back to "in progress", which
+      // hid them from the All Employees list and looked like deletion. Status may
+      // still be earned upward; it is never taken away by an edit.
+      onboarding_status: editing?.onboarding_status === "completed"
+        ? "completed"
+        : deriveOnboardingStatus(checklist),
       notes: emptyToNull(form.notes),
       skills: Array.isArray(form.skills) && form.skills.length > 0 ? form.skills : null,
     };
