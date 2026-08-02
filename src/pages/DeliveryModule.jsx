@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Circle, Clock, FileCheck, AlertCircle, Pencil, Trash2, XCircle, HelpCircle } from "lucide-react";
+import { CheckCircle2, Circle, Clock, FileCheck, AlertCircle, Pencil, Trash2, XCircle, HelpCircle, Lock } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
@@ -27,13 +27,25 @@ const RIBA_LABELS = { stage_0: "Stage 0", stage_1: "Stage 1", stage_2: "Stage 2"
 const DELIVERABLE_TYPES = ["cost_plan", "boq", "feasibility_report", "procurement_strategy", "tender_report", "cost_report", "final_account", "specification", "other"];
 
 const OCRA_STEPS = [
-  { key: "originator", label: "Originator", statusKey: "originator_status", color: "bg-blue-100 text-blue-700" },
-  { key: "checker", label: "Checker", statusKey: "checker_status", color: "bg-violet-100 text-violet-700" },
-  { key: "reviewer", label: "Reviewer", statusKey: "reviewer_status", color: "bg-amber-100 text-amber-700" },
-  { key: "authoriser", label: "Authoriser", statusKey: "authoriser_status", color: "bg-emerald-100 text-emerald-700" },
+  { key: "originator", label: "Originator", statusKey: "originator_status", idKey: "originator_id", color: "bg-blue-100 text-blue-700" },
+  { key: "checker", label: "Checker", statusKey: "checker_status", idKey: "checker_id", color: "bg-violet-100 text-violet-700" },
+  { key: "reviewer", label: "Reviewer", statusKey: "reviewer_status", idKey: "reviewer_id", color: "bg-amber-100 text-amber-700" },
+  { key: "authoriser", label: "Authoriser", statusKey: "authoriser_status", idKey: "authoriser_id", color: "bg-emerald-100 text-emerald-700" },
 ];
 
-const defaultForm = { title: "", project_name: "", riba_stage: "stage_0", deliverable_type: "", due_date: "", originator: "", checker: "", reviewer: "", authoriser: "", overall_status: "not_started", version: "v1.0", comments: "" };
+/**
+ * Who may action an OCRA step. Write permission alone isn't enough — a step
+ * belongs to the employee assigned to it, so the four sign-offs represent four
+ * people rather than whoever opened the page. An unassigned step can't be
+ * actioned by anyone until someone is assigned to it.
+ */
+export function canActionStep(deliverable, step, employeeId) {
+  if (!deliverable || !step || !employeeId) return false;
+  const owner = deliverable[step.idKey];
+  return !!owner && owner === employeeId;
+}
+
+const defaultForm = { title: "", project_name: "", riba_stage: "stage_0", deliverable_type: "", due_date: "", originator: "", checker: "", reviewer: "", authoriser: "", originator_id: null, checker_id: null, reviewer_id: null, authoriser_id: null, overall_status: "not_started", version: "v1.0", comments: "" };
 
 const STEP_DONE = ["approved", "completed"];
 
@@ -71,6 +83,7 @@ export default function DeliveryModule() {
   const queryClient = useQueryClient();
 
   const { data: deliverables = [] } = useQuery({ queryKey: ["deliverables"], queryFn: () => base44.entities.Deliverable.list("-created_date") });
+
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => base44.entities.Project.list() });
   const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: () => base44.entities.Employee.list() });
 
@@ -87,6 +100,14 @@ export default function DeliveryModule() {
     }
   });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Deliverable.delete(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["deliverables"] }); setDeleteId(null); } });
+
+  // Resolve the signed-in user to their employee record — OCRA steps are owned
+  // by an employee id, so without this nobody can be matched to a step.
+  const currentEmployee = React.useMemo(() => {
+    if (!user) return null;
+    const fullName = user?.user_metadata?.full_name;
+    return employees.find(e => e.email === user.email || (fullName && e.full_name === fullName)) || null;
+  }, [user, employees]);
 
   const openNew = () => { setEditing(null); setForm(defaultForm); setDialogOpen(true); };
   const openEdit = d => { setEditing(d); setForm({ ...defaultForm, ...d }); setDialogOpen(true); };
@@ -292,27 +313,45 @@ export default function DeliveryModule() {
                   })}
                 </div>
 
-                {/* Decision bar for whichever step is awaiting a call. */}
-                {canEdit && activeStepFor(d) && (
-                  <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t">
-                    <span className="text-xs text-muted-foreground mr-auto">
-                      Awaiting <span className="font-medium text-foreground">{activeStepFor(d).label}</span>
-                      {d[activeStepFor(d).key] ? ` · ${d[activeStepFor(d).key]}` : ""}
-                    </span>
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                      onClick={() => applyOCRADecision(d, activeStepFor(d), "approve")}>
-                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Approve
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-orange-700 border-orange-200 hover:bg-orange-50"
-                      onClick={() => askForReason(d, activeStepFor(d), "clarify")}>
-                      <HelpCircle className="h-3.5 w-3.5 mr-1" />Clarify
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/5"
-                      onClick={() => askForReason(d, activeStepFor(d), "reject")}>
-                      <XCircle className="h-3.5 w-3.5 mr-1" />Reject
-                    </Button>
-                  </div>
-                )}
+                {/* Decision bar — only for the employee the awaiting step belongs to. */}
+                {(() => {
+                  const step = activeStepFor(d);
+                  if (!step) return null;
+                  const owner = d[step.key];
+                  const isOwner = canActionStep(d, step, currentEmployee?.id);
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t">
+                      <span className="text-xs text-muted-foreground mr-auto">
+                        Awaiting <span className="font-medium text-foreground">{step.label}</span>
+                        {owner ? ` · ${owner}` : ""}
+                      </span>
+                      {!canEdit ? null : !d[step.idKey] ? (
+                        <span className="text-xs text-amber-700">
+                          No {step.label.toLowerCase()} assigned — edit the deliverable to assign one.
+                        </span>
+                      ) : isOwner ? (
+                        <>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                            onClick={() => applyOCRADecision(d, step, "approve")}>
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Approve
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-orange-700 border-orange-200 hover:bg-orange-50"
+                            onClick={() => askForReason(d, step, "clarify")}>
+                            <HelpCircle className="h-3.5 w-3.5 mr-1" />Clarify
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/5"
+                            onClick={() => askForReason(d, step, "reject")}>
+                            <XCircle className="h-3.5 w-3.5 mr-1" />Reject
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Lock className="h-3 w-3" />Only {owner} can action this step
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {d.comments && (
                   <p className="text-[11px] text-muted-foreground mt-2 whitespace-pre-line border-t pt-2">{d.comments}</p>
@@ -420,9 +459,18 @@ export default function DeliveryModule() {
                 {OCRA_STEPS.map(step => (
                   <div key={step.key} className="space-y-1.5">
                     <Label>{step.label}</Label>
-                    <Select value={form[step.key]} onValueChange={v => setForm(f => ({...f, [step.key]: v}))}>
+                    {/* Value is the employee id — that's what the ownership check
+                        compares. The name is stored alongside it for display. */}
+                    <Select
+                      value={form[step.idKey] || ""}
+                      onValueChange={id => setForm(f => ({
+                        ...f,
+                        [step.idKey]: id,
+                        [step.key]: employees.find(e => e.id === id)?.full_name || "",
+                      }))}
+                    >
                       <SelectTrigger><SelectValue placeholder="Assign" /></SelectTrigger>
-                      <SelectContent>{employees.map(e => <SelectItem key={e.id} value={e.full_name}>{e.full_name}</SelectItem>)}</SelectContent>
+                      <SelectContent>{employees.map(e => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 ))}
