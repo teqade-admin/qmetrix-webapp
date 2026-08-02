@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { appPath, appUrl } from '@/lib/appUrl';
+import PasswordInput from '@/components/shared/PasswordInput';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -87,9 +88,8 @@ export default function Login() {
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
