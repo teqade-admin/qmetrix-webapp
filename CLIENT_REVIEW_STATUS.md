@@ -71,7 +71,7 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 | 21 | Onboarding wizard step-level validation | ⬜ | The wizard lets you advance through all four steps without completing required fields. |
 | 22 | Recruitment / Applicant Tracking module | ⬜ | New module. Largest item alongside #20; needs scoping. |
 | 23 | Filter option in all sections | ✅ | `81187dc`. Added search + filters to Team, Resource Allocation, Resource Monitor, Deliverables, Workflow and Employment via a shared `FilterBar`. |
-| 24 | Logo change | 🟡 | The mechanism exists — Administration → Settings uploads a logo. **Blocked on the client supplying the image file.** |
+| 24 | Logo change | ✅ | **Already available** — Administration → Settings lets an admin upload and change the company logo, which the sidebar reads from `app_settings`. No code change needed; it is a matter of uploading the desired image. |
 | 25 | PEOPLE → RESOURCES | ✅ | `fc7b90d`. |
 
 ---
@@ -97,8 +97,8 @@ deployed to https://teqade-admin.github.io/qmetrix-webapp/
 
 | Status | Count |
 |---|---|
-| ✅ Done | 27 |
-| 🟡 Partly done | 3 |
+| ✅ Done | 28 |
+| 🟡 Partly done | 2 |
 | ⏸️ Not doing | 1 |
 | ⬜ Not started | 4 |
 
