@@ -25,7 +25,7 @@ const navGroups = [
     ]
   },
   {
-    label: "People",
+    label: "Resources",
     items: [
       { name: "Employment", page: "HRModule", icon: Users },
       { name: "Team", page: "Team", icon: Network },
