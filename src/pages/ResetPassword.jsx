@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { appPath } from '@/lib/appUrl';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -100,7 +101,7 @@ export default function ResetPassword() {
             </Button>
           </form>
           <div className="mt-4 text-center">
-            <Button variant="link" onClick={() => { window.location.href = '/login'; }}>
+            <Button variant="link" onClick={() => { window.location.href = appPath('/login'); }}>
               Back to Login
             </Button>
           </div>

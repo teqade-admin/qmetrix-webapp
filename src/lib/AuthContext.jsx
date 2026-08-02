@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { normalizeRole } from '@/lib/permissions';
+import { appPath } from '@/lib/appUrl';
 
 const AuthContext = createContext();
 const AUTH_INIT_TIMEOUT_MS = 4000;
@@ -97,7 +98,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    window.location.href = '/login';
+    window.location.href = appPath('/login');
   };
 
   return (

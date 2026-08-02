@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
+import { appUrl } from "@/lib/appUrl";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -60,7 +61,7 @@ export default function Profile() {
     
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: appUrl('/reset-password'),
       });
       
       if (error) throw error;

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { appPath, appUrl } from '@/lib/appUrl';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -18,7 +19,7 @@ export default function Login() {
 
   // If already logged in, redirect
   if (user) {
-    window.location.href = '/';
+    window.location.href = appPath('/');
     return null;
   }
 
@@ -50,7 +51,7 @@ export default function Login() {
     setError('');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: appUrl('/reset-password'),
       });
       if (error) throw error;
       setResetSent(true);

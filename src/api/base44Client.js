@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { entities } from '@/api/supabaseEntities';
+import { appPath } from '@/lib/appUrl';
 
 const DEFAULT_STORAGE_BUCKET = import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'documents';
 
@@ -59,6 +60,6 @@ export const base44 = {
       return user;
     },
     logout: () => supabase.auth.signOut(),
-    redirectToLogin: () => { window.location.href = '/login'; }
+    redirectToLogin: () => { window.location.href = appPath('/login'); }
   }
 };

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>QMetrix</title>
+    <script>
+      // GitHub Pages has no server-side rewrite, so a refresh or a pasted deep
+      // link (e.g. /qmetrix-webapp/TimeManagement) asks for a file that doesn't
+      // exist and gets GitHub's own 404 page. Pages does serve this file for any
+      // unmatched path, so we use it as a trampoline: stash the requested route
+      // in the query string and bounce to index.html, which puts the real URL
+      // back before React Router mounts (see the companion script in index.html).
+      //
+      // segmentCount = number of leading path segments to keep, i.e. the repo
+      // name for a project site. Set to 0 if this ever moves to a root domain.
+      var segmentCount = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
