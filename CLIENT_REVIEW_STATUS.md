@@ -3,7 +3,7 @@
 This is our reply to every point you raised. Anything marked Done is already
 working on the live site: https://teqade-admin.github.io/qmetrix-webapp/
 
-**What the marks mean** — ✅ Done · 🟡 Partly done · ⏸️ Agreed not to change
+**What the marks mean** — ✅ Done · 🟡 Partly done · ⏸️ Consideration to not change
 
 ---
 
@@ -13,7 +13,7 @@ working on the live site: https://teqade-admin.github.io/qmetrix-webapp/
 |---|---|
 | ✅ Done | 31 |
 | 🟡 Partly done | 1 |
-| ⏸️ Agreed not to change | 2 |
+| ⏸️ Consideration to not change | 2 |
 
 Three of your points were requests for brand-new modules rather than fixes.
 Those are listed at the end, under **New feature requests**, for a separate
@@ -52,7 +52,7 @@ conversation.
 
 | What you raised | Status | What we did |
 |---|---|---|
-| Restrict HR Admin from assigning admin roles in other departments, or add an approval step | ⏸️ | **Agreed not to change, and here is why.** HR sets up every new joiner, and choosing their system role is part of creating their login — it is how they get any access at all. Limit HR to their own department, and every new arrival in Operations or Finance would wait on someone else before they could even sign in. HR still cannot create a Super Admin, and every role granted is recorded in the Audit Log. Happy to add an approval step if you would prefer one. |
+| Restrict HR Admin from assigning admin roles in other departments, or add an approval step | ⏸️ | **Consideration to not change, and here is why.** HR sets up every new joiner, and choosing their system role is part of creating their login — it is how they get any access at all. Limit HR to their own department, and every new arrival in Operations or Finance would wait on someone else before they could even sign in. HR still cannot create a Super Admin, and every role granted is recorded in the Audit Log. Happy to add an approval step if you would prefer one. |
 | Leave requests showed impossible "Working Days" figures | ✅ | A Saturday-to-Sunday request was showing as 1 working day, and a request with a mistyped year showed 52,179. Working days are now counted properly, a weekend-only request is refused with an explanation, and no single request can exceed 366 days. |
 
 ## Arjun Reddy — Ops User
@@ -97,7 +97,7 @@ conversation.
 | Gross Margin showed two different numbers: −442.2% on the Dashboard and 99.1% on Cost & Value | ✅ | The two screens were using the same income figure but counting costs differently — one counted project costs, the other counted expense claims. Both now use the same definition: the value of work done, less what it cost to do it. Both report **47.7%**. |
 | Onboarding could fail to create a login, leaving a new joiner unable to sign in | ✅ | The error message was generic and the real reason was being thrown away, so nobody knew what had gone wrong. HR now sees the actual reason, and every Onboarding card has a **Create login** button to try again. |
 | The notification bell did nothing, for every role | ✅ | The bell now shows what is waiting for you — timesheets and leave to approve, deliverables where the next sign-off is yours, and overdue invoices — and each one takes you to the right page. |
-| The invoice number cannot be typed over | ⏸️ | **Agreed not to change — the system sets it.** It is the reference your client quotes when paying, so it must stay unique and gap-free. It is now given at the moment you create the invoice, rather than shown beforehand and wasted if you cancel. We also made the status a proper sequence: **Draft → Sent → Paid**, one step at a time, so an invoice can no longer be marked paid without being sent. **Overdue happens on its own**, from the due date. Only drafts can be edited. |
+| The invoice number cannot be typed over | ⏸️ | **Consideration to not change — the system sets it.** It is the reference your client quotes when paying, so it must stay unique and gap-free. It is now given at the moment you create the invoice, rather than shown beforehand and wasted if you cancel. We also made the status a proper sequence: **Draft → Sent → Paid**, one step at a time, so an invoice can no longer be marked paid without being sent. **Overdue happens on its own**, from the due date. Only drafts can be edited. |
 | Approving an expense re-ordered the list, so the next click could hit the wrong one | ✅ | Two faults. The approve button was a receipt icon that looked like "view document", so a click meant to open the receipt was quietly approving the claim — it is now a tick. Lists could also come back in a different order after a refresh; every list now has a fixed order. Expense claims also follow a sequence now: **Pending → Approved → Paid**, each decision recording who made it and when. Rejected claims no longer count as company cost — **AED 2,200 of your AED 9,900 total**. |
 | Many actions gave no confirmation | ✅ | Every action now confirms itself — green when it worked, red when it did not — and says what happened ("Timesheet approved", "Expense approved"). The messages clear on their own, and the close button works. |
 | Start Date and other onboarding fields were not being saved | ✅ | We checked all 21 fields the onboarding wizard collects, and every one saves correctly. Three other genuine faults turned up while we were looking: a saved value of 0 showed as blank, and clearing a rate, a salary or a manager quietly kept the old value instead. All three are fixed. |
@@ -128,7 +128,7 @@ shared calculation as the rest.
 **Waiting on your decision** — whether HR User should be stopped from *seeing*
 salary figures, as well as from changing them.
 
-**Agreed not to change** — HR Admin assigning roles across departments (see the
+**Consideration to not change** — HR Admin assigning roles across departments (see the
 explanation above), and typing over the invoice number.
 
 **For a separate discussion** — the three new modules above.
