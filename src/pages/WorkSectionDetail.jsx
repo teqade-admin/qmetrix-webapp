@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, MessageSquare, History, Send } from "lucide-react";
+import { ArrowLeft, MessageSquare, History, Send, Pencil } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { getSubordinates } from "@/lib/orgHierarchy";
@@ -37,7 +37,8 @@ export default function WorkSectionDetail() {
   const { user, userRole } = useAuth();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState("");
-  const [draft, setDraft] = useState(null); // null = not editing
+  const [draft, setDraft] = useState(null);      // details form
+  const [descDraft, setDescDraft] = useState(null); // description, edited in place
 
   const { data: sections = [], isLoading } = useQuery({
     queryKey: ["work_sections"], queryFn: () => base44.entities.WorkSection.list(),
@@ -78,9 +79,8 @@ export default function WorkSectionDetail() {
     [comments, sectionId]
   );
   const activity = useMemo(
-    () => auditLogs.filter(l => l.record_id === sectionId
-      || (l.table_name === "work_section_comments" && sectionComments.some(c => c.id === l.record_id))),
-    [auditLogs, sectionId, sectionComments]
+    () => auditLogs.filter(l => l.table_name === "work_sections" && l.record_id === sectionId),
+    [auditLogs, sectionId]
   );
   const activityPager = usePagination(activity, 10);
   const commentPager = usePagination(sectionComments, 10);
@@ -179,11 +179,36 @@ export default function WorkSectionDetail() {
         {/* Discussion and history */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="p-4">
-            <p className="text-xs text-muted-foreground mb-1">Description</p>
-            <p className="text-sm whitespace-pre-line">{section.description || "—"}</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-muted-foreground">Description</p>
+              {canEdit && descDraft === null && (
+                <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs"
+                  onClick={() => setDescDraft(section.description || "")}>
+                  <Pencil className="h-3 w-3" />Edit
+                </Button>
+              )}
+            </div>
+            {descDraft === null ? (
+              <p className="text-sm whitespace-pre-line">{section.description || "No description yet."}</p>
+            ) : (
+              <div className="space-y-2">
+                <Textarea rows={5} value={descDraft} onChange={e => setDescDraft(e.target.value)}
+                  placeholder="What does this piece of work involve?" />
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={updateMut.isPending}
+                    onClick={() => updateMut.mutate({
+                      id: section.id,
+                      data: { description: descDraft.trim() || null },
+                    }, { onSuccess: () => setDescDraft(null) })}>
+                    {updateMut.isPending ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setDescDraft(null)}>Cancel</Button>
+                </div>
+              </div>
+            )}
             {section.notes && (
               <>
-                <p className="text-xs text-muted-foreground mt-3 mb-1">Notes</p>
+                <p className="text-xs text-muted-foreground mt-4 mb-1">Notes</p>
                 <p className="text-sm whitespace-pre-line">{section.notes}</p>
               </>
             )}
@@ -273,20 +298,41 @@ export default function WorkSectionDetail() {
         </div>
 
         {/* Details: always visible, edited in place rather than in a dialog. */}
-        <Card className="p-4 space-y-3 h-fit lg:sticky lg:top-4">
+        <Card className="p-4 space-y-4 h-fit lg:sticky lg:top-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Details</h2>
             {canEdit && !draft && <Button variant="outline" size="sm" onClick={startEdit}>Edit</Button>}
           </div>
 
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            {canEdit ? (
+              <Select
+                value={section.status}
+                onValueChange={(v) => updateMut.mutate({
+                  id: section.id,
+                  data: { status: v, ...(v === "completed" ? { progress_percent: 100 } : {}) },
+                })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {WORK_SECTION_STATUSES.map(st => (
+                    <SelectItem key={st} value={st}>{WORK_SECTION_STATUS_LABELS[st]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm font-medium">{WORK_SECTION_STATUS_LABELS[section.status]}</p>
+            )}
+          </div>
+
           {!draft ? (
-            <div className="space-y-2.5 text-sm">
+            <div className="space-y-3 text-sm border-t pt-3">
               {[
                 ["Project", project?.name],
                 ["Stage", section.riba_stage ? stageLabel(section.riba_stage) : null],
                 ["Assignee", section.assignee_name],
                 ["Reporter", section.reporter_name],
-                ["Status", WORK_SECTION_STATUS_LABELS[section.status]],
                 ["Planned Hours", section.planned_hours],
                 ["Date of Work", section.work_date],
                 ["Start", section.start_date],
@@ -305,7 +351,7 @@ export default function WorkSectionDetail() {
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Title</Label>
                 <Input value={value("title")} onChange={e => setValue("title", e.target.value)} />
@@ -322,15 +368,6 @@ export default function WorkSectionDetail() {
                 <Select value={value("assignee_id") || undefined} onValueChange={v => setValue("assignee_id", v)}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>{employees.map(e => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Status</Label>
-                <Select value={value("status")} onValueChange={v => setValue("status", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {WORK_SECTION_STATUSES.map(s => <SelectItem key={s} value={s}>{WORK_SECTION_STATUS_LABELS[s]}</SelectItem>)}
-                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
@@ -352,11 +389,7 @@ export default function WorkSectionDetail() {
                   <Input type="date" value={value(key)} onChange={e => setValue(key, e.target.value)} />
                 </div>
               ))}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Description</Label>
-                <Textarea rows={3} value={value("description")} onChange={e => setValue("description", e.target.value)} />
-              </div>
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-2 border-t">
                 <Button size="sm" className="flex-1" onClick={save} disabled={updateMut.isPending}>
                   {updateMut.isPending ? "Saving…" : "Save"}
                 </Button>
