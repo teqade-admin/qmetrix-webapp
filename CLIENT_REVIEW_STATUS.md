@@ -1,137 +1,150 @@
-# QMetrix — Client Review Status
+# QMetrix — Where We Are With Your Review
 
-Progress against every item raised in the review. Everything marked Done is live
-at https://teqade-admin.github.io/qmetrix-webapp/
+This is our reply to every point you raised. Anything marked Done is already
+working on the live site: https://teqade-admin.github.io/qmetrix-webapp/
 
-**Legend** — ✅ Done · 🟡 Partly done · ⏸️ Not doing (agreed) · ⬜ Not started
+**What the marks mean** — ✅ Done · 🟡 Partly done · ⏸️ Agreed not to change
 
 ---
 
-## Summary
+## In short
 
-| Status | Count |
+| | Count |
 |---|---|
 | ✅ Done | 31 |
 | 🟡 Partly done | 1 |
-| ⏸️ Not doing (agreed) | 2 |
-| ⬜ Not started | 3 |
+| ⏸️ Agreed not to change | 2 |
 
-The three not started are new modules that need scoping with you:
-User Management, Reports, and Recruitment.
+Three of your points were requests for brand-new modules rather than fixes.
+Those are listed at the end, under **New feature requests**, for a separate
+conversation.
 
 ---
 
 ## Rajesh Menon — Super Admin
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Refresh/direct URL access should not return GitHub 404 pages | ✅ | Refreshing or opening a link to any page now works. The site had no handling for direct links, so any page other than the home page returned a hosting error. This also fixed password-reset links, which were broken for the same reason. |
-| Restrict OCRA approvals to assigned approvers only. Add authorization validation and audit logging | ✅ | Each OCRA role is now tied to a specific employee record, and only that person can action their step. Every change is recorded in the new Audit Log with who, when, and what changed. |
-| Consolidate financial calculations into a single source of truth across Dashboard, Projects, Finance and Cost & Value | 🟡 | Gross margin, earned value and total cost now come from one shared definition used by every screen. **Dashboard, Projects and Finance still calculate some subtotals independently** (fee agreed, invoiced, outstanding). They agree today, but are not yet centralised. |
-| Correct Projects module currency formatting to use configured AED currency | ✅ | Projects displayed pounds regardless of the configured currency. All amounts, including form labels, now follow the base currency. |
-| Remove Access Denied flash during application initialization | ✅ | The application briefly showed "Access Denied" on every page load while it looked up the user's role. It now waits for the role before deciding what to show. |
-| Fix project progress calculation showing 0% for all projects | ✅ | Progress was a figure typed by hand and had never been filled in. It is now calculated: work sections roll up into stage progress, and stages into overall project progress. |
-| HR module employees getting deleted when updating | ✅ | **No employee was ever deleted.** Editing any field re-evaluated onboarding status, which could push a fully onboarded employee back to "in progress" — and the All Employees list only shows completed ones, so they disappeared from view. Onboarding completion is now a milestone that editing cannot revoke. |
-| Hierarchy of approvals — own leave should have approve, not only submission | ✅ | Super Admin can approve or reject their own leave, as nobody sits above them to do it. |
-| Deliverables — pending approval should offer reject/clarify, not only approve | ✅ | Reviewers can now Approve, Reject, or request Clarification. The latter two require a written reason, recorded against the deliverable with the reviewer's name, date and step. |
+| Refreshing a page or opening a link directly showed a "404" error page | ✅ | Fixed. You can now refresh any page, or open a link straight to it, and it works. The same fault was breaking password-reset links, so those work now too. |
+| Only the assigned approver should be able to approve, and every approval should be logged | ✅ | Each approval step is now tied to a named person, chosen from your employee list. Only that person can approve it. Every change is written to the new Audit Log, showing who did it, when, and what changed. |
+| Financial figures should be worked out one way, not differently on each screen | 🟡 | Gross margin, earned value and total cost now come from one shared calculation that every screen uses. **A few smaller totals are still worked out separately** on the Dashboard, Projects and Finance screens (fee agreed, invoiced, outstanding). They currently agree with each other, but we would like to bring them into the same shared calculation to be sure they always will. |
+| Projects showed the wrong currency | ✅ | Projects were showing pounds no matter what currency you had set. Every amount now follows the currency you choose. |
+| "Access Denied" flashed up while the app was loading | ✅ | The app was deciding what you could see before it had finished looking up who you are. It now waits, so the message no longer appears. |
+| Every project showed 0% complete | ✅ | Progress used to be a number someone had to type in, and nobody ever had. It is now worked out automatically: work sections add up into stage progress, and stages add up into overall project progress. |
+| Employees seemed to be deleted when you updated them | ✅ | **Nobody was ever deleted.** Editing any field caused the system to re-check whether the person was fully onboarded, and that could push a finished employee back to "in progress". The All Employees list only shows finished ones, so they vanished from view. Finishing onboarding is now permanent — editing someone can never undo it. |
+| You can submit your own leave but not approve it | ✅ | As Super Admin you can now approve or reject your own leave, since there is nobody above you to do it. |
+| Deliverables awaiting approval only offered "Approve" | ✅ | Reviewers can now **Approve**, **Reject**, or ask for **Clarification**. Reject and Clarify both ask for a written reason, which is saved against the deliverable along with the reviewer's name and the date. |
 
 ## Anjali Sharma — Ops Admin
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Enforce OCRA approval ownership checks | ✅ | As above. Verified against live data: someone assigned as both Checker and Reviewer can action exactly those two steps and no others. |
-| Redirect users to Dashboard after login instead of reopening previous route | ✅ | Signing in now lands on the Dashboard rather than resuming the previous page. Refreshing a page still keeps you where you were. |
+| Only the assigned person should be able to approve | ✅ | Done, as above. We tested it on your live data: someone who is named as both Checker and Reviewer can approve exactly those two steps and nothing else. |
+| After signing in, users should land on the Dashboard | ✅ | Signing in now takes you to the Dashboard instead of reopening whatever page you were on last. Refreshing a page still keeps you where you are. |
 
 ## Vikram Iyer — Finance Admin
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Standardise invoice numbering to INV-YYYY-NNN format | ✅ | New invoices are numbered INV-2026-007 onward. The sequence restarts each January and skips any number already used, so no duplicate can occur. **One existing invoice numbered "7" was deliberately left unchanged** — it has already been issued to a client, and altering an issued invoice number would no longer match their records. |
+| Invoice numbers should follow the INV-YYYY-NNN format | ✅ | New invoices are numbered INV-2026-007 onwards. The count starts again each January, and the system skips any number already used, so you can never end up with two invoices sharing a number. **We left one older invoice, numbered simply "7", exactly as it was** — it has already gone to a client, and changing the number on an invoice they already hold would stop it matching their records. |
 
 ## Priya Nair — HR Admin
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Restrict cross-department admin role assignment, or implement approval workflow | ⏸️ | **Agreed not to change.** HR Admin can continue to assign admin roles in any department except Super Admin. Neither a restriction nor an approval workflow will be added unless you would like us to revisit this. |
-| Fix invalid leave-date calculation displaying unrealistic Working Days values | ✅ | A Saturday–Sunday request reported 1 working day, and a mistyped year reported 52,179. Working days are now counted correctly, weekend-only requests are refused with an explanation, and a single request is capped at 366 days. |
+| Restrict HR Admin from assigning admin roles in other departments, or add an approval step | ⏸️ | **Agreed not to change, and here is why.** HR is the team that sets a new joiner up in the first place. When HR onboards someone, choosing that person's system role is part of creating their login — it is how the new employee gets any access at all. If HR could only assign roles inside their own department, then every new joiner in Operations or Finance would need a second person from that department to step in before they could even sign in, which would hold up every single arrival. The one thing HR Admin cannot do is create another Super Admin; that is reserved. And every role assignment is recorded in the Audit Log, so you can always see who granted what and when. If you would still prefer an approval step, we are happy to add one — just say. |
+| Leave requests showed impossible "Working Days" figures | ✅ | A Saturday-to-Sunday request was showing as 1 working day, and a request with a mistyped year showed 52,179. Working days are now counted properly, a weekend-only request is refused with an explanation, and no single request can exceed 366 days. |
 
 ## Arjun Reddy — Ops User
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Prevent non-assigned users from approving OCRA workflow steps | ✅ | As above — only the named approver for a step can action it. |
-| Users should see only their own projects and team man hours, not all | ✅ | Ops Admin sees the whole portfolio. Everyone else sees only projects they manage, created, or have work assigned on — enforced both on the list and when a project link is opened directly. Work assignments follow the reporting line: your own, plus anyone reporting to you at any level. |
+| Users who are not assigned should not be able to approve workflow steps | ✅ | Done, as above — only the named approver can act on a step. |
+| Users should see only their own projects and team hours, not everyone's | ✅ | Ops Admin still sees everything. Everyone else now sees only the projects they manage, created, or have work assigned on. This holds even if someone is given a direct link to another project. Team hours follow your reporting line: your own people, and anyone below them. |
 
 ## Sanjay Patel — Finance User
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Reduce Finance User permissions to a limited/view-only access model | ✅ | Finance and Cost & Value are now read-only for this role — invoices and expenses can be viewed but not created, edited or deleted. |
+| Finance User has too much access — it should be view-only | ✅ | Finance and Cost & Value are now read-only for this role. Invoices and expenses can be looked at, but not created, changed or deleted. |
 
 ## Meera Joshi — HR User
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Restrict HR User to self-service. Remove employee-wide salary, rate, role editing and onboarding permissions | ✅ | Employee records are read-only for HR User: no editing salary, cost rate or system role, no onboarding, no role granting, no KPI reviews. Approving team timesheets and leave was retained, as agreed. **Please note:** HR User can still *see* salary and cost rate on the Employment page — the change removed editing, not visibility. Please confirm whether it should be hidden entirely. |
+| HR User should be limited to self-service, without editing salaries, rates, roles or onboarding | ✅ | Employee records are now read-only for HR User: no editing salary, cost rate or system role, no onboarding, no granting of roles, no KPI reviews. We kept their ability to approve their team's timesheets and leave, as agreed. **One thing to confirm:** HR User can still *see* salary and cost rate on the Employment page — we removed the ability to change them, not to view them. Please tell us if you would like these hidden as well. |
 
 ---
 
-## Enhancements
+## Improvements you asked for
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Password visibility toggle | ✅ | Added to all five password fields, and reachable by keyboard. |
-| User Management module | ⬜ | Not started. A centralised console for users and permissions. Needs scoping with you. |
-| Reports module | ⬜ | Not started. Needs scoping — which reports, in what format, and who receives them. |
-| Audit Log module | ✅ | Delivered, under Data → Audit Log. Records every change across the system: who, when, and the exact before and after of each field. Recorded in the database itself, so it also covers changes made outside these screens. Visibility follows the reporting line — your own actions, your team's at any level, and company-wide for Super Admin. Filterable by module, action and free text. |
-| Onboarding wizard step-level validation | ✅ | Every step is mandatory, and the wizard tells you where you stand as you go: each step names exactly what it is still missing, and the last step lists everything outstanding across all four. **Back**, **Next** and **Save as Draft** are on every step so you can move around freely and stop at any point; the final step adds **Onboard**, which stays greyed until nothing is outstanding — a draft can never become "onboarded" by accident. What the steps ask for is exactly what the onboarding checklist counts as onboarded, so the two can no longer disagree. A **Create login** button sits on the Role step beside the system role it grants; it turns on once a draft is saved, and reads "Reset login" when the person already has one, so an existing password is never reset unknowingly. **Existing staff are unaffected** — 12 of your 13 onboarded employees have no contract or document on file, and editing them is deliberately exempt from the new rules. |
-| Recruitment / Applicant Tracking module | ⬜ | Not started. A new module — needs scoping with you. |
-| Filter option to be added in all the sections | ✅ | Search and filters added to Team, Resource Allocation, Resource Monitor, Deliverables, Workflow and Employment, alongside those already in place. Long lists are now paged rather than rendered in full. |
-| Logo change | ✅ | Administration → Settings uploads and changes the company logo, along with company name and subtitle. Uploading your preferred image is all that remains. |
-| Change PEOPLE to RESOURCES | ✅ | Navigation group renamed. |
+| Show/hide button on password fields | ✅ | Added to all five password boxes, and usable by keyboard as well as mouse. |
+| Audit Log | ✅ | Built, under **Data → Audit Log**. It records every change made anywhere in the system: who made it, when, and exactly what the value was before and after. It is recorded by the database itself, so it also picks up changes made outside these screens. You see your own actions and those of everyone who reports to you at any level; Super Admins see the whole company. You can filter by module, by type of action, or by searching. |
+| Onboarding should check each step before moving on | ✅ | Every step is now required, and the wizard tells you where you stand as you go. Each step names exactly what is still missing, and the last step lists everything outstanding across all four. **Back**, **Next** and **Save as Draft** appear on every step, so you can move around freely and stop part-way and come back. The last step adds **Onboard**, which stays greyed out until nothing is missing — so a half-finished record can never be marked as onboarded by accident. There is also a **Create login** button on the Role step, next to where you choose their system role; it becomes available once you have saved a draft, and changes to "Reset login" if that person already has one, so you can never reset a password by accident. **Your existing staff are not affected** — 12 of your 13 onboarded employees have no contract or document on file, and editing them is deliberately exempt from the new rules. |
+| Add filters to every section | ✅ | Search and filters added to Team, Resource Allocation, Resource Monitor, Deliverables, Workflow and Employment, on top of the ones already there. Long lists are now split into pages instead of showing everything at once. |
+| Change the logo | ✅ | This was already possible — **Administration → Settings** lets you upload your logo and change the company name and subtitle. All that is left is for you to upload the image you want. |
+| Rename PEOPLE to RESOURCES | ✅ | Renamed. |
 
 ---
 
-## General comments
+## General points you raised
 
-| Item | Status | Detail |
+| What you raised | Status | What we did |
 |---|---|---|
-| Project "% complete" stuck at 0% everywhere, zeroing Earned Value and making Cost Variance meaningless | ✅ | Progress is now calculated rather than typed. All eight projects report real figures, and earned value on Cost & Value moved from £0 to £11,005,300 — Cost Variance is meaningful again. |
-| Gross Margin reported as two contradictory numbers: −442.2% on Dashboard vs 99.1% in Cost & Value | ✅ | The two screens used the same revenue figure but different cost bases — one counted project costs, the other expense claims. Both now use a single definition, the value of work done less the cost of doing it, and report **47.7%**. |
-| Onboarding can fail to create a login account, leaving a new hire unable to sign in | ✅ | The message shown was a generic wrapper and the real reason was being discarded. HR now sees what actually failed, and each Onboarding card has a **Create login** button to retry. |
-| Notification bell non-functional on every role | ✅ | The bell now shows what is awaiting you — timesheets and leave to approve, deliverables where you own the next sign-off, and overdue invoices — each linking to the relevant page. |
-| Invoice # field cannot be manually overridden | ⏸️ | **Agreed not to change — the number stays system-assigned.** It is the client's reference for a payment, so it is set by the system and cannot be typed over. What did change is when it appears: the field no longer shows a number before the invoice exists, since cancelling the dialog would have thrown that number away and left a gap. It is now assigned at the moment you create the invoice. This came alongside a wider change to how an invoice progresses. Status was a free choice of five values, so an invoice could be marked paid without ever being sent. It now follows **Draft → Sent → Paid**, one step at a time, with a single button offering the next step. **Overdue is automatic** — derived from the due date, so an invoice becomes overdue on the day it falls due and stops being overdue as soon as it is paid. Editing is a draft-only privilege; once sent, an invoice opens as a record to read, not a form to change. The same treatment was applied to expense claims: **Pending → Approved → Paid**, Reject available only while pending, Approve and Reject buttons in place of the status dropdown, and each decision now records who made it and when. Rejected claims also stopped counting as company cost — **AED 2,200 of the AED 9,900 expense total** was money the company had declined to pay. |
-| Expense approvals re-sort the list, so a second click can action the wrong expense | ✅ | Two causes addressed. The approve control was a receipt icon that read as "view document", so a click meant to inspect silently approved the expense — it is now a tick. Separately, list ordering had no tiebreaker, so rows could come back in a different order after a refresh; every list now orders deterministically. |
-| Many actions give no confirmation | ✅ | Every action now confirms — green for success, red for failure — naming what happened ("Timesheet approved", "Expense approved"). Confirmations clear on their own, and the close button works. |
-| Start Date and other wizard fields not persisted | ✅ | We audited all 21 fields the onboarding wizard collects, and every one saves correctly. Three genuine faults were found and fixed in the process: a stored value of 0 displayed as blank, and clearing a rate, salary or manager silently kept the previous value. |
-| "Add Section" does nothing; document/view icon next to invoices and expenses does nothing | ✅ | "Add Section" was submitting the form instead of adding a section, so the dialog closed and nothing appeared. The invoice PDF button failed silently when generation errored, and now reports what went wrong. |
-| KPI & Performance defaults to a data-less quarter, showing "KPI Score 0" | ✅ | The scorecard opens on the **last complete quarter** rather than the current one. The current quarter is still being logged into, so every metric reads low: today it holds 4 timesheet entries against 975 in the quarter just closed. Four employees still score 0 because they have logged no time at all this year — that is a real result rather than a defaulting fault. |
+| Every project stuck at 0% complete, which made Earned Value and Cost Variance meaningless | ✅ | Progress is now worked out automatically rather than typed in. All eight projects now show real figures, and Earned Value on the Cost & Value screen went from £0 to £11,005,300 — so Cost Variance means something again. |
+| Gross Margin showed two different numbers: −442.2% on the Dashboard and 99.1% on Cost & Value | ✅ | The two screens were using the same income figure but counting costs differently — one counted project costs, the other counted expense claims. Both now use the same definition: the value of work done, less what it cost to do it. Both report **47.7%**. |
+| Onboarding could fail to create a login, leaving a new joiner unable to sign in | ✅ | The error message was generic and the real reason was being thrown away, so nobody knew what had gone wrong. HR now sees the actual reason, and every Onboarding card has a **Create login** button to try again. |
+| The notification bell did nothing, for every role | ✅ | The bell now shows what is waiting for you — timesheets and leave to approve, deliverables where the next sign-off is yours, and overdue invoices — and each one takes you to the right page. |
+| The invoice number cannot be typed over | ⏸️ | **Agreed not to change — the number is set by the system.** It is the reference your client quotes when they pay, so it needs to be unique and gap-free, and typing over it would put that at risk. What we did change is *when* it appears: the box used to show a number before the invoice existed, so cancelling threw that number away and left a gap in the sequence. The number is now given at the moment you create the invoice. Alongside this we changed how an invoice moves along. Its status used to be a free choice of five options, so an invoice could be marked paid without ever being sent. It now follows **Draft → Sent → Paid**, one step at a time, with a single button offering the next step. **Overdue happens on its own** — the system works it out from the due date, so an invoice becomes overdue on the day it falls due, and stops being overdue the moment it is paid. An invoice can only be edited while it is a draft; once sent, it opens as a record to read rather than a form to change. We did the same for expense claims: **Pending → Approved → Paid**, with Reject available only while it is still pending, Approve and Reject buttons instead of a dropdown, and each decision now recording who made it and when. Rejected claims also stopped counting as company cost — **AED 2,200 of the AED 9,900 expense total** was money you had decided not to pay. |
+| Approving an expense re-ordered the list, so the next click could hit the wrong one | ✅ | Two things were wrong. The approve button was a receipt icon that looked like "view document", so a click meant to open the receipt was quietly approving the claim — it is now a tick. Separately, lists could come back in a different order after a refresh; every list now has a fixed, repeatable order. |
+| Many actions gave no confirmation | ✅ | Every action now confirms itself — green when it worked, red when it did not — and says what happened ("Timesheet approved", "Expense approved"). The messages clear on their own, and the close button works. |
+| Start Date and other onboarding fields were not being saved | ✅ | We checked all 21 fields the onboarding wizard collects, and every one saves correctly. Three other genuine faults turned up while we were looking: a saved value of 0 showed as blank, and clearing a rate, a salary or a manager quietly kept the old value instead. All three are fixed. |
+| "Add Section" did nothing, and the document icon beside invoices and expenses did nothing | ✅ | "Add Section" was closing the form instead of adding a section. The invoice PDF button was failing without saying so; it now tells you what went wrong. |
+| KPI & Performance opened on a quarter with no data, showing "KPI Score 0" | ✅ | The scorecard now opens on the **last completed quarter** instead of the current one. The current quarter is still being filled in as people log time, so everything reads low — today it holds 4 timesheet entries, against 975 in the quarter just finished. Four employees still score 0, but only because they have logged no time at all this year; that is a true figure rather than a fault. |
 
 ---
 
-## What remains
+## New feature requests
 
-**Needs scoping with you** — three new modules: **User Management**, **Reports**,
-and **Recruitment / Applicant Tracking**.
+These three are not fixes to what exists — they are new modules. We would like to
+sit down with you separately to agree what each one should do before we quote or
+build anything.
 
-**Small, ready when you are** — finishing the consolidation of financial
-subtotals.
-
-**Awaiting your decision** — whether HR User should be prevented from *seeing*
-salary as well as editing it.
-
-**Agreed not to do** — restricting cross-department admin role assignment, and
-making the invoice number manually overridable.
+| Request | What we need to agree with you |
+|---|---|
+| **User Management module** | A single place to manage users and their permissions. We need to know how it should differ from what HR already does, and who should be allowed to use it. |
+| **Reports module** | Which reports you need, what each should show, what format they come in (on screen, PDF, spreadsheet), and who receives them and how often. |
+| **Recruitment / Applicant Tracking module** | Your hiring process end to end: where candidates come from, what stages they pass through, who reviews them, and how a successful candidate becomes an onboarded employee. |
 
 ---
 
-## One technical note
+## Still open
 
-The access rules described above are enforced within the application: they
-control what each role can see and do through the interface. They are not yet
-enforced at the database layer, which means the protection is not absolute
-against someone deliberately bypassing the application.
+**Almost finished** — bringing the last few financial subtotals into the same
+shared calculation as the rest.
 
-We recommend adding database-level enforcement before the system holds live
-salary and client financial data. The rules are already defined in one place,
-so this is a contained piece of work rather than a redesign.
+**Waiting on your decision** — whether HR User should be stopped from *seeing*
+salary figures, as well as from changing them.
+
+**Agreed not to change** — HR Admin assigning roles across departments (see the
+explanation above), and typing over the invoice number.
+
+**For a separate discussion** — the three new modules above.
+
+---
+
+## One thing we would recommend
+
+All the access rules described here are enforced inside the application. They
+control what each person sees and can do through the screens, which is what
+matters for everyday use.
+
+They are not yet enforced by the database itself. In practice that means the
+protection is very good against ordinary mistakes, but not absolute against
+someone deliberately going around the application.
+
+We would recommend adding that second layer before the system holds real salary
+and client financial data. The rules are already written down in one place, so
+this is a contained piece of work rather than a rebuild.
