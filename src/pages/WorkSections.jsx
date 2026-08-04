@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { canWrite } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
@@ -15,13 +17,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, CircleDot, Clock, Ban, CheckCircle2 } from "lucide-react";
+import { CircleDot, Clock, Ban, CheckCircle2, ChevronRight } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import FilterBar from "@/components/shared/FilterBar";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { getSubordinates } from "@/lib/orgHierarchy";
+import { visibleWorkSections } from "@/lib/projectAccess";
 import {
   RIBA_STAGES, stageLabel, projectProgress,
   WORK_SECTION_STATUSES, WORK_SECTION_STATUS_LABELS,
@@ -51,12 +54,15 @@ const defaultForm = {
 };
 
 export default function WorkSections() {
+  const navigate = useNavigate();
   const { user, userRole } = useAuth();
   const queryClient = useQueryClient();
   const [scope, setScope] = useState(SCOPES.MINE);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -185,19 +191,36 @@ export default function WorkSections() {
     }
   };
 
+  // Access control first: you only ever see your own work and your reports',
+  // whatever the tabs and filters below are set to.
+  const permitted = useMemo(
+    () => visibleWorkSections(sections, { role: userRole, employee: me, employees }),
+    [sections, userRole, me, employees]
+  );
+
   const visible = useMemo(() => {
     const reportIds = new Set(reports.map(r => r.id));
-    return sections.filter(s => {
+    return permitted.filter(s => {
       if (scope === SCOPES.MINE && s.assignee_id !== me?.id) return false;
       if (scope === SCOPES.TEAM && !(reportIds.has(s.assignee_id) || s.assignee_id === me?.id)) return false;
       if (statusFilter !== "all" && s.status !== statusFilter) return false;
       if (projectFilter !== "all" && s.project_id !== projectFilter) return false;
+      if (stageFilter !== "all" && s.riba_stage !== stageFilter) return false;
+      if (assigneeFilter !== "all" && s.assignee_id !== assigneeFilter) return false;
       const q = search.trim().toLowerCase();
       if (!q) return true;
       return [s.title, s.description, s.assignee_name, s.reporter_name, projectById.get(s.project_id)?.name]
         .some(v => (v || "").toLowerCase().includes(q));
     });
-  }, [sections, scope, me, reports, statusFilter, projectFilter, search, projectById]);
+  }, [permitted, scope, me, reports, statusFilter, projectFilter, stageFilter, assigneeFilter, search, projectById]);
+
+  // Only offer people who actually appear in what this user can see.
+  const assigneeOptions = useMemo(() => {
+    const seen = new Map();
+    permitted.forEach(s => { if (s.assignee_id) seen.set(s.assignee_id, s.assignee_name || "Unknown"); });
+    return [...seen].map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [permitted]);
 
   const pager = usePagination(visible, 12);
   const countBy = (st) => visible.filter(s => s.status === st).length;
@@ -240,6 +263,14 @@ export default function WorkSections() {
             options: projects.map(p => ({ value: p.id, label: p.name })), width: "w-48",
           },
           {
+            value: stageFilter, onChange: setStageFilter, allLabel: "All stages",
+            options: RIBA_STAGES.map(s => ({ value: s, label: stageLabel(s) })), width: "w-36",
+          },
+          {
+            value: assigneeFilter, onChange: setAssigneeFilter, allLabel: "All assignees",
+            options: assigneeOptions, width: "w-44",
+          },
+          {
             value: statusFilter, onChange: setStatusFilter, allLabel: "All statuses",
             options: WORK_SECTION_STATUSES.map(s => ({ value: s, label: WORK_SECTION_STATUS_LABELS[s] })),
             width: "w-40",
@@ -270,14 +301,18 @@ export default function WorkSections() {
                   <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-right p-3 font-medium text-muted-foreground">Hours</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Due</th>
-                  <th className="p-3 w-20"></th>
+                  <th className="p-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 {pager.pageItems.map(s => {
                   const Icon = STATUS_ICON[s.status] || CircleDot;
                   return (
-                    <tr key={s.id} className="border-b hover:bg-muted/20">
+                    <tr
+                      key={s.id}
+                      className="border-b hover:bg-muted/20 cursor-pointer"
+                      onClick={() => navigate(`${createPageUrl("WorkSections")}/${s.id}`)}
+                    >
                       <td className="p-3">
                         <p className="font-medium">{s.title}</p>
                         {s.description && <p className="text-xs text-muted-foreground truncate max-w-[220px]">{s.description}</p>}
@@ -293,14 +328,7 @@ export default function WorkSections() {
                       </td>
                       <td className="p-3 text-xs text-right">{s.planned_hours ?? "—"}</td>
                       <td className="p-3 text-xs">{s.work_date ? format(parseISO(s.work_date), "dd MMM yy") : "—"}</td>
-                      <td className="p-3">
-                        {canAssign && (
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                          </div>
-                        )}
-                      </td>
+                      <td className="p-3 text-muted-foreground"><ChevronRight className="h-4 w-4" /></td>
                     </tr>
                   );
                 })}

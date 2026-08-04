@@ -109,4 +109,5 @@ export const entities = {
   PerformanceReview: makeEntity('performance_reviews'),
   AuditLog: makeEntity('audit_logs'),
   WorkSection: makeEntity('work_sections'),
+  WorkSectionComment: makeEntity('work_section_comments'),
 };

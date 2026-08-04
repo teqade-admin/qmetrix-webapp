@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
-import { canWrite, canDelete } from "@/lib/permissions";
+import { projectPermissions } from "@/lib/projectAccess";
 import { createPageUrl } from "@/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,14 +23,25 @@ import WorkSectionsTracker from "@/components/projects/WorkSectionsTracker";
 import DateComparison from "@/components/projects/DateComparison";
 import ProjectFormDialog from "@/components/projects/ProjectFormDialog";
 import { projectProgress, stageLabel } from "@/lib/projectProgress";
+import { describeChanges } from "@/lib/auditScope";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
+import { format, parseISO } from "date-fns";
 
 export default function ProjectDetail() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { currency } = useCurrency();
-  const { userRole } = useAuth();
-  const canEdit = canWrite(userRole, "Projects");
-  const canRemove = canDelete(userRole, "Projects");
+  const { user, userRole } = useAuth();
+  // The creator owns the project; the manager may edit but not delete, since
+  // deleting takes the work sections with it.
+  const me = React.useMemo(() => {
+    if (!user) return null;
+    const fullName = user?.user_metadata?.full_name;
+    return employees.find(e => e.user_id && e.user_id === user.id)
+      || employees.find(e => e.email && e.email.toLowerCase() === (user.email || "").toLowerCase())
+      || employees.find(e => fullName && e.full_name === fullName)
+      || null;
+  }, [user, employees]);
   const queryClient = useQueryClient();
 
   const { data: projects = [], isLoading } = useQuery({
@@ -44,6 +55,9 @@ export default function ProjectDetail() {
   });
   const { data: employees = [] } = useQuery({
     queryKey: ["employees"], queryFn: () => base44.entities.Employee.list(),
+  });
+  const { data: auditLogs = [] } = useQuery({
+    queryKey: ["audit_logs"], queryFn: () => base44.entities.AuditLog.list("-occurred_at"),
   });
   const [editOpen, setEditOpen] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
@@ -83,6 +97,11 @@ export default function ProjectDetail() {
     );
   }
 
+  const { canEdit, canDelete: canRemove, isOwner, isManager } = projectPermissions(project, { role: userRole, employee: me });
+  const sectionIds = new Set(sections.map(s => s.id));
+  const projectLogs = auditLogs.filter(
+    l => l.record_id === project.id || sectionIds.has(l.record_id)
+  );
   const progress = projectProgress(sections, project.riba_stage);
   const withSections = { ...project, work_sections: sections };
 
@@ -144,6 +163,7 @@ export default function ProjectDetail() {
           <TabsTrigger value="programme">Programme</TabsTrigger>
           <TabsTrigger value="sections">Work Sections</TabsTrigger>
           <TabsTrigger value="financials">Financials</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -164,6 +184,8 @@ export default function ProjectDetail() {
                 ["Actual End", project.actual_end_date],
                 ["Budgeted Hours", project.budgeted_hours],
                 ["Actual Hours", project.actual_hours],
+                ["Created By", project.created_by_name],
+                ["Created", project.created_at ? project.created_at.slice(0, 10) : null],
                 ["Work Sections", sections.length],
                 ["Progress", progress != null ? `${progress}%` : null],
               ].map(([label, value, cls = ""]) => (
@@ -249,6 +271,14 @@ export default function ProjectDetail() {
             </div>
           </Card>
         </TabsContent>
+        <TabsContent value="logs" className="mt-4">
+          <Card className="p-4 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Every change to this project and its work sections — who, when, and what moved.
+            </p>
+            <ProjectLogs logs={projectLogs} />
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -288,5 +318,43 @@ export default function ProjectDetail() {
         }}
       />
     </div>
+  );
+}
+
+/** Paginated audit entries for a project and the work under it. */
+function ProjectLogs({ logs }) {
+  const pager = usePagination(logs, 12);
+  if (logs.length === 0) {
+    return <p className="text-xs text-muted-foreground py-6 text-center">Nothing recorded yet.</p>;
+  }
+  return (
+    <>
+      <div className="space-y-2">
+        {pager.pageItems.map(log => {
+          const changes = describeChanges(log.changes);
+          return (
+            <div key={log.id} className="text-xs border-b pb-2 last:border-0">
+              <p>
+                <span className="font-medium">{log.actor_name || "Unknown"}</span>
+                <span className="text-muted-foreground">
+                  {" "}{log.action}d {log.record_label || log.table_name}
+                  {log.occurred_at ? ` · ${format(parseISO(log.occurred_at), "dd MMM yy HH:mm")}` : ""}
+                </span>
+              </p>
+              {changes.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {changes.map(({ field, from, to }) => (
+                    <p key={field} className="text-muted-foreground">
+                      <span className="capitalize">{field}</span>: {from} → <span className="text-foreground">{to}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <Pagination {...pager} />
+    </>
   );
 }

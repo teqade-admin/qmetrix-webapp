@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { canWrite } from "@/lib/permissions";
+import { visibleProjects } from "@/lib/projectAccess";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ const STATUSES = ["kick_off","feasibility","design","pre_construction","construc
 export default function Projects() {
   const navigate = useNavigate();
   const { currency } = useCurrency();
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const canEdit = canWrite(userRole, "Projects");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -41,6 +42,15 @@ export default function Projects() {
     queryKey: ["employees"],
     queryFn: () => base44.entities.Employee.list()
   });
+
+  const me = React.useMemo(() => {
+    if (!user) return null;
+    const fullName = user?.user_metadata?.full_name;
+    return employees.find(e => e.user_id && e.user_id === user.id)
+      || employees.find(e => e.email && e.email.toLowerCase() === (user.email || "").toLowerCase())
+      || employees.find(e => fullName && e.full_name === fullName)
+      || null;
+  }, [user, employees]);
 
 
   // Work sections live in their own table now, assigned and tracked in the
@@ -70,7 +80,11 @@ export default function Projects() {
 
   const openNew = () => setDialogOpen(true);
 
-  const filtered = projects.filter(p => {
+  // Ops Admin sees the portfolio; everyone else sees only projects they manage,
+  // created, or have work assigned on.
+  const scoped = visibleProjects(projects, { role: userRole, employee: me, sections: allSections });
+
+  const filtered = scoped.filter(p => {
     const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client_name?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
     return matchSearch && matchStatus;
@@ -180,7 +194,11 @@ export default function Projects() {
         projects={projects}
         employees={employees}
         saving={createMut.isPending}
-        onSave={(data) => createMut.mutate(data)}
+        onSave={(data) => createMut.mutate({
+          ...data,
+          created_by: me?.id || null,
+          created_by_name: me?.full_name || null,
+        })}
       />
 
     </div>
