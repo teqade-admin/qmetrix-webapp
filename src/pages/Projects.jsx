@@ -20,15 +20,15 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Search, FolderKanban, TrendingUp, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { Pencil, Trash2, Search, FolderKanban, TrendingUp, DollarSign, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import WorkSectionsTracker from "@/components/projects/WorkSectionsTracker";
 import { projectProgress, stageOptions, stageLabel, RIBA_STAGES } from "@/lib/projectProgress";
-import StageStepper from "@/components/projects/StageStepper";
-import DateComparison from "@/components/projects/DateComparison";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 
 const SECTORS = ["residential","commercial","infrastructure","healthcare","education","industrial","mixed_use","government","other"];
@@ -45,6 +45,7 @@ const defaultForm = {
 };
 
 export default function Projects() {
+  const navigate = useNavigate();
   const { currency } = useCurrency();
   const { userRole } = useAuth();
   const canEdit = canWrite(userRole, "Projects");
@@ -55,8 +56,8 @@ export default function Projects() {
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [form, setForm] = useState(defaultForm);
-  const [expandedId, setExpandedId] = useState(null);
   const [formTab, setFormTab] = useState("details");
+  const [formError, setFormError] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -114,7 +115,7 @@ export default function Projects() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDeleteId(null); }
   });
 
-  const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("details"); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("details"); setFormError(""); setDialogOpen(true); };
   const openEdit = p => {
     setEditing(p);
     setForm({ ...defaultForm, ...p,
@@ -129,6 +130,14 @@ export default function Projects() {
 
   const handleSave = e => {
     e.preventDefault();
+    setFormError("");
+    // Sector is fixed at creation so a project is never filed under nothing;
+    // it stays editable afterwards if the classification turns out wrong.
+    if (!editing && !form.sector) {
+      setFormTab("details");
+      setFormError("Choose a sector — it can be changed later, but a project can't be created without one.");
+      return;
+    }
     const data = {
       ...form,
       project_value: form.project_value !== "" ? Number(form.project_value) : undefined,
@@ -216,7 +225,7 @@ export default function Projects() {
               {/* Project row header */}
               <div
                 className="flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/20 transition-colors"
-                onClick={() => setExpandedId(expandedId === project.id ? null : project.id)}
+                onClick={() => navigate(`${createPageUrl("Projects")}/${project.id}`)}
               >
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="min-w-0">
@@ -250,115 +259,9 @@ export default function Projects() {
                 <div className="flex items-center gap-1 shrink-0">
                   {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openEdit(project); }}><Pencil className="h-3.5 w-3.5" /></Button>}
                   {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={e => { e.stopPropagation(); setDeleteId(project.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
-                  {expandedId === project.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
-
-              {/* Expanded detail panel */}
-              {expandedId === project.id && (
-                <div className="border-t bg-muted/10 p-4 space-y-4">
-                  <Tabs defaultValue="overview">
-                    <TabsList className="h-8">
-                      <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-                      <TabsTrigger value="stages" className="text-xs">Stages</TabsTrigger>
-                      <TabsTrigger value="programme" className="text-xs">Programme</TabsTrigger>
-                      <TabsTrigger value="sections" className="text-xs">Work Sections</TabsTrigger>
-                      <TabsTrigger value="financials" className="text-xs">Financials</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="overview" className="mt-3">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                        <div><p className="text-xs text-muted-foreground">Start</p><p className="font-medium">{project.start_date || project.baseline_start_date || "—"}</p></div>
-                        <div><p className="text-xs text-muted-foreground">End</p><p className="font-medium">{project.end_date || project.baseline_end_date || "—"}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Budgeted Hours</p><p className="font-medium">{project.budgeted_hours || "—"}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Actual Hours</p><p className="font-medium">{project.actual_hours || "—"}</p></div>
-                      </div>
-                      {project.description && <p className="text-xs text-muted-foreground mt-3 border-t pt-3">{project.description}</p>}
-                    </TabsContent>
-
-                    <TabsContent value="stages" className="mt-3 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Each stage&apos;s progress is the average of the work sections mapped to it.
-                        A stage with unfinished sections locks the ones after it.
-                      </p>
-                      <StageStepper
-                        project={{ ...project, work_sections: sectionsFor(project.id) }}
-                        readOnly={!canEdit}
-                        onSelect={(stage) => {
-                          updateMut.mutate({
-                            id: project.id,
-                            data: {
-                              riba_stage: stage,
-                              progress_percent: projectProgress(sectionsFor(project.id), stage),
-                            },
-                            toastMessage: `Moved to ${stageLabel(stage)}`,
-                          });
-                        }}
-                      />
-                    </TabsContent>
-
-                    <TabsContent value="programme" className="mt-3">
-                      <DateComparison project={project} />
-                    </TabsContent>
-
-                    <TabsContent value="sections" className="mt-3 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Work is assigned and updated in the Work Sections module; this is a read-only view.
-                      </p>
-                      <WorkSectionsTracker
-                        sections={sectionsFor(project.id)}
-                        defaultStage={project.riba_stage}
-                        onChange={() => {}}
-                        readOnly
-                      />
-                    </TabsContent>
-
-                    <TabsContent value="financials" className="mt-3">
-                      {/* Where the work came from, and how the winning bid compares
-                          with what was actually agreed and spent. */}
-                      {(() => {
-                        const bid = project.bid_id ? bidById.get(project.bid_id) : null;
-                        if (!bid) return null;
-                        const proposed = bid.fee_proposal || 0;
-                        const agreed = project.fee_agreed || 0;
-                        const spent = project.cost_to_date || 0;
-                        const variance = proposed > 0 ? ((agreed - proposed) / proposed) * 100 : null;
-                        return (
-                          <div className="mb-3 rounded-lg border bg-muted/20 p-3">
-                            <p className="text-xs text-muted-foreground mb-2">
-                              Won from bid <span className="font-medium text-foreground">{bid.title}</span>
-                              {bid.client_name ? ` · ${bid.client_name}` : ""}
-                            </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                              <div><p className="text-xs text-muted-foreground">Fee Proposed</p><p className="font-medium">{formatMoney(proposed, currency)}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">{formatMoney(agreed, currency)}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Cost to Date</p><p className="font-medium">{formatMoney(spent, currency)}</p></div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Agreed vs Proposed</p>
-                                <p className={`font-medium ${variance == null ? "" : variance < 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                                  {variance == null ? "—" : `${variance > 0 ? "+" : ""}${variance.toFixed(1)}%`}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                        <div><p className="text-xs text-muted-foreground">Project Value</p><p className="font-medium">{formatMoney(project.project_value || 0, currency)}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">{formatMoney(project.fee_agreed || 0, currency)}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Fee Invoiced</p><p className="font-medium">{formatMoney(project.fee_invoiced || 0, currency)}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Cost to Date</p><p className="font-medium">{formatMoney(project.cost_to_date || 0, currency)}</p></div>
-                      </div>
-                      {project.fee_agreed > 0 && (
-                        <div className="mt-3 space-y-1">
-                          <p className="text-xs text-muted-foreground">Invoice Recovery ({Math.round(((project.fee_invoiced || 0) / project.fee_agreed) * 100)}%)</p>
-                          <Progress value={Math.min(((project.fee_invoiced || 0) / project.fee_agreed) * 100, 100)} className="h-2" />
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              )}
             </Card>
           ))}
           <Pagination {...pager} className="rounded-md border bg-card" />
@@ -370,6 +273,9 @@ export default function Projects() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit Project" : "New Project"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSave}>
+            {formError && (
+              <p className="text-sm text-destructive mb-3">{formError}</p>
+            )}
             <Tabs value={formTab} onValueChange={setFormTab}>
               <TabsList className="h-8 mb-4">
                 <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
@@ -391,7 +297,7 @@ export default function Projects() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Sector</Label>
+                    <Label>Sector{!editing && " *"}</Label>
                     <Select value={form.sector} onValueChange={v => setForm(f => ({...f, sector: v}))}>
                       <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>{SECTORS.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>

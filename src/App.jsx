@@ -11,6 +11,7 @@ import AccessDenied from '@/lib/AccessDenied';
 import { CurrencyProvider } from '@/components/shared/CurrencyContext';
 import TimeManagement from './pages/TimeManagement';
 import DeliveryModule from './pages/DeliveryModule';
+import ProjectDetail from './pages/ProjectDetail';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
 import ErrorBoundary from '@/lib/ErrorBoundary';
@@ -98,6 +99,9 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+      {/* Project detail lives on its own route so a project can be linked to and
+          reloaded, which an inline expander cannot do. */}
+      <Route path="/Projects/:projectId" element={<LayoutWrapper currentPageName="Projects"><Guarded page="Projects"><ProjectDetail /></Guarded></LayoutWrapper>} />
       <Route path="/TimeManagement" element={<LayoutWrapper currentPageName="TimeManagement"><Guarded page="TimeManagement"><TimeManagement /></Guarded></LayoutWrapper>} />
       <Route path="/DeliveryModule" element={<LayoutWrapper currentPageName="DeliveryModule"><Guarded page="DeliveryModule"><DeliveryModule /></Guarded></LayoutWrapper>} />
       <Route path="/login" element={<Login />} />
