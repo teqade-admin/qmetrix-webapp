@@ -28,7 +28,7 @@ import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { Users, UserCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { provisionEmployeeAccount, DEFAULT_EMPLOYEE_PASSWORD } from "@/lib/employeeAccounts";
-import { WIZARD_STEPS, STEP_LABELS, missingForStep, isStepComplete, missingForOnboarding, canOnboard, firstIncompleteStep, nextStep, prevStep, isStepReachable } from "@/lib/onboardingSteps";
+import { WIZARD_STEPS, STEP_LABELS, missingForStep, isStepComplete, missingForOnboarding, canOnboard, firstIncompleteStep, nextStep, prevStep } from "@/lib/onboardingSteps";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -663,12 +663,7 @@ export default function HRModule() {
             <Tabs value={formTab} onValueChange={setFormTab}>
               <TabsList className="grid w-full grid-cols-4">
                 {WIZARD_STEPS.map((step, i) => (
-                  <TabsTrigger
-                    key={step}
-                    value={step}
-                    disabled={!isEditingOnboarded && !isStepReachable(step, form)}
-                    title={!isEditingOnboarded && !isStepReachable(step, form) ? "Finish the earlier steps first" : undefined}
-                  >
+                  <TabsTrigger key={step} value={step}>
                     {isStepComplete(step, form)
                       ? <Check className="h-3.5 w-3.5 mr-1 text-emerald-600" />
                       : <span className="mr-1">{i + 1}.</span>}
@@ -784,24 +779,27 @@ export default function HRModule() {
               </TabsContent>
             </Tabs>
 
-            {/* Say what is holding the step up rather than leaving a dead button. */}
-            {!isEditingOnboarded && !stepDone && (
+            {/* Say what is holding Onboard back rather than leaving a dead button. */}
+            {!isEditingOnboarded && (nextStep(formTab) ? !stepDone : !readyToOnboard) && (
               <p className="text-xs text-amber-700 dark:text-amber-500">
-                Still needed on this step: {stepMissing.join(", ")}.
-              </p>
-            )}
-            {!isEditingOnboarded && stepDone && formTab === "documents" && !readyToOnboard && (
-              <p className="text-xs text-amber-700 dark:text-amber-500">
-                Before onboarding: {outstanding.join(", ")}.
+                {nextStep(formTab)
+                  ? `Still needed on this step: ${stepMissing.join(", ")}.`
+                  : `Before onboarding: ${outstanding.join(", ")}.`}
               </p>
             )}
 
             <DialogFooter className="gap-2 flex-wrap sm:justify-between">
+              {/* Steps are navigable in any order; Back and Next stay put and
+                  simply run out at the ends. */}
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                {prevStep(formTab) && (
-                  <Button type="button" variant="outline" onClick={() => setFormTab(prevStep(formTab))}>Back</Button>
-                )}
+                <Button type="button" variant="outline" disabled={!prevStep(formTab)}
+                  onClick={() => setFormTab(prevStep(formTab))}>
+                  <ChevronLeft className="h-4 w-4 mr-1" />Back
+                </Button>
+                <Button type="button" variant="outline" disabled={!nextStep(formTab)}
+                  onClick={() => setFormTab(nextStep(formTab))}>
+                  Next<ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {isEditingOnboarded ? (
@@ -812,13 +810,12 @@ export default function HRModule() {
                       onClick={ev => handleSave(ev, "draft")}>
                       {savingEmployee ? "Saving…" : "Save as Draft"}
                     </Button>
-                    {nextStep(formTab)
-                      ? <Button type="button" disabled={!stepDone} title={stepDone ? undefined : "Complete this step first"}
-                          onClick={() => setFormTab(nextStep(formTab))}>Next</Button>
-                      : <Button type="submit" disabled={!readyToOnboard || savingEmployee}
-                          title={readyToOnboard ? undefined : "Fill in every step first"}>
-                          {savingEmployee ? "Saving…" : "Onboard"}
-                        </Button>}
+                    {!nextStep(formTab) && (
+                      <Button type="submit" disabled={!readyToOnboard || savingEmployee}
+                        title={readyToOnboard ? undefined : "Fill in every step first"}>
+                        {savingEmployee ? "Saving…" : "Onboard"}
+                      </Button>
+                    )}
                   </>
                 )}
               </div>

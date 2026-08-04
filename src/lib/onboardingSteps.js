@@ -5,10 +5,11 @@
  * in, so a half-finished record could be saved and only the checklist on the
  * Onboarding tab showed what was missing — after the fact.
  *
- * Every step is now mandatory: you cannot move on until the step in front of
- * you is complete, and Onboard stays disabled until all of them are. What each
- * step asks for is exactly what the onboarding checklist counts as onboarded,
- * so the two can no longer disagree:
+ * Every step is mandatory, but the wizard is navigable in any order: the steps
+ * report what they are still missing, and Onboard is the single gate, staying
+ * disabled until nothing is outstanding. What each step asks for is exactly
+ * what the onboarding checklist counts as onboarded, so the two can no longer
+ * disagree:
  *
  *   Role step      → role_assignment, system_role, cost_rate
  *   Contracts step → contract_upload
@@ -76,13 +77,3 @@ export const prevStep = (step) => {
   return i > 0 ? WIZARD_STEPS[i - 1] : null;
 };
 
-/**
- * Whether a step can be jumped to directly from the tab strip. You may revisit
- * anything already complete and the first thing that is not, but you cannot
- * skip ahead over an unfinished step.
- */
-export function isStepReachable(step, form) {
-  const target = WIZARD_STEPS.indexOf(step);
-  if (target <= 0) return true;
-  return WIZARD_STEPS.slice(0, target).every((earlier) => isStepComplete(earlier, form));
-}
