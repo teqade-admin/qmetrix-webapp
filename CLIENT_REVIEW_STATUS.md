@@ -3,7 +3,7 @@
 This is our reply to every point you raised. Anything marked Done is already
 working on the live site: https://teqade-admin.github.io/qmetrix-webapp/
 
-**What the marks mean** — ✅ Done · 🟡 Partly done · ⏸️ Consideration to not change
+**What the marks mean** — ✅ Done · ⏸️ Consideration to not change
 
 ---
 
@@ -11,8 +11,7 @@ working on the live site: https://teqade-admin.github.io/qmetrix-webapp/
 
 | | Count |
 |---|---|
-| ✅ Done | 31 |
-| 🟡 Partly done | 1 |
+| ✅ Done | 32 |
 | ⏸️ Consideration to not change | 2 |
 
 Three of your points were requests for brand-new modules rather than fixes.
@@ -27,7 +26,7 @@ conversation.
 |---|---|---|
 | Refreshing a page or opening a link directly showed a "404" error page | ✅ | Fixed. You can now refresh any page, or open a link straight to it, and it works. The same fault was breaking password-reset links, so those work now too. |
 | Only the assigned approver should be able to approve, and every approval should be logged | ✅ | Each approval step is now tied to a named person, chosen from your employee list. Only that person can approve it. Every change is written to the new Audit Log, showing who did it, when, and what changed. |
-| Financial figures should be worked out one way, not differently on each screen | 🟡 | Gross margin, earned value and total cost now come from one shared calculation that every screen uses. **A few smaller totals are still worked out separately** on the Dashboard, Projects and Finance screens (fee agreed, invoiced, outstanding). They currently agree with each other, but we would like to bring them into the same shared calculation to be sure they always will. |
+| Financial figures should be worked out one way, not differently on each screen | ✅ | Every financial figure now comes from one shared calculation. Two real disagreements were found and fixed. **Total Invoiced** was counting a cancelled invoice on Finance and Cost & Value, overstating it by **AED 189,000**. And the Projects page showed **AED 7,270,000** invoiced, taken from a number typed onto each project, against **AED 3,789,000** of real invoices — a gap of AED 3.48m. Invoiced now always means the invoices actually raised. |
 | Projects showed the wrong currency | ✅ | Projects were showing pounds no matter what currency you had set. Every amount now follows the currency you choose. |
 | "Access Denied" flashed up while the app was loading | ✅ | The app was deciding what you could see before it had finished looking up who you are. It now waits, so the message no longer appears. |
 | Every project showed 0% complete | ✅ | Progress used to be a number someone had to type in, and nobody ever had. It is now worked out automatically: work sections add up into stage progress, and stages add up into overall project progress. |
@@ -121,9 +120,6 @@ build anything.
 ---
 
 ## Still open
-
-**Almost finished** — bringing the last few financial subtotals into the same
-shared calculation as the rest.
 
 **Waiting on your decision** — whether HR User should be stopped from *seeing*
 salary figures, as well as from changing them.
