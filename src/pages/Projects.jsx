@@ -144,7 +144,7 @@ export default function Projects() {
               {/* Project row header */}
               <div
                 className="flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/20 transition-colors"
-                onClick={() => navigate(`${createPageUrl("Projects")}/${project.id}`)}
+                onClick={() => navigate(`${createPageUrl("Projects")}/${project.project_code || project.id}`)}
               >
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="min-w-0">

@@ -164,7 +164,7 @@ export default function WorkSectionDetail() {
             <h1 className="font-bold text-xl">{section.title}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {project ? (
-                <Link to={`${createPageUrl("Projects")}/${project.id}`} className="hover:underline">{project.name}</Link>
+                <Link to={`${createPageUrl("Projects")}/${project.project_code || project.id}`} className="hover:underline">{project.name}</Link>
               ) : "No project"}
               {section.riba_stage ? ` · ${stageLabel(section.riba_stage)}` : ""}
             </p>

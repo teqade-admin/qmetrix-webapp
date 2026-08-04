@@ -102,7 +102,7 @@ const AuthenticatedApp = () => {
       ))}
       {/* Project detail lives on its own route so a project can be linked to and
           reloaded, which an inline expander cannot do. */}
-      <Route path="/Projects/:projectId" element={<LayoutWrapper currentPageName="Projects"><Guarded page="Projects"><ProjectDetail /></Guarded></LayoutWrapper>} />
+      <Route path="/Projects/:projectRef" element={<LayoutWrapper currentPageName="Projects"><Guarded page="Projects"><ProjectDetail /></Guarded></LayoutWrapper>} />
       <Route path="/WorkSections/:sectionId" element={<LayoutWrapper currentPageName="WorkSections"><Guarded page="WorkSections"><WorkSectionDetail /></Guarded></LayoutWrapper>} />
       <Route path="/TimeManagement" element={<LayoutWrapper currentPageName="TimeManagement"><Guarded page="TimeManagement"><TimeManagement /></Guarded></LayoutWrapper>} />
       <Route path="/DeliveryModule" element={<LayoutWrapper currentPageName="DeliveryModule"><Guarded page="DeliveryModule"><DeliveryModule /></Guarded></LayoutWrapper>} />

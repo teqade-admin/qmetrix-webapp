@@ -28,7 +28,7 @@ import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { format, parseISO } from "date-fns";
 
 export default function ProjectDetail() {
-  const { projectId } = useParams();
+  const { projectRef } = useParams();
   const navigate = useNavigate();
   const { currency } = useCurrency();
   const { user, userRole } = useAuth();
@@ -63,10 +63,18 @@ export default function ProjectDetail() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
 
-  const project = projects.find(p => p.id === projectId) || null;
+  const project = useMemo(() => {
+    const ref = String(projectRef || "").trim().toLowerCase();
+    if (!ref) return null;
+    // Both guards matter: without them an empty ref matches a project that has
+    // no code, since each side normalises to "".
+    return projects.find(p => p.project_code && p.project_code.toLowerCase() === ref)
+      || projects.find(p => p.id === projectRef)
+      || null;
+  }, [projects, projectRef]);
   const sections = useMemo(
-    () => allSections.filter(s => s.project_id === projectId),
-    [allSections, projectId]
+    () => (project ? allSections.filter(s => s.project_id === project.id) : []),
+    [allSections, project]
   );
   const bid = project?.bid_id ? bids.find(b => b.id === project.bid_id) : null;
 
