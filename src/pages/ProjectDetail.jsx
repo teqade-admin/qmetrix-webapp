@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FolderKanban } from "lucide-react";
+import { ArrowLeft, FolderKanban, Pencil } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import StageTree from "@/components/projects/StageTree";
 import WorkSectionsTracker from "@/components/projects/WorkSectionsTracker";
 import DateComparison from "@/components/projects/DateComparison";
+import ProjectFormDialog from "@/components/projects/ProjectFormDialog";
 import { projectProgress, stageLabel } from "@/lib/projectProgress";
 
 export default function ProjectDetail() {
@@ -36,6 +37,10 @@ export default function ProjectDetail() {
   const { data: bids = [] } = useQuery({
     queryKey: ["bids"], queryFn: () => base44.entities.Bid.list(),
   });
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees"], queryFn: () => base44.entities.Employee.list(),
+  });
+  const [editOpen, setEditOpen] = React.useState(false);
 
   const project = projects.find(p => p.id === projectId) || null;
   const sections = useMemo(
@@ -93,6 +98,11 @@ export default function ProjectDetail() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {canEdit && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />Edit
+              </Button>
+            )}
             <StatusBadge status={project.status} />
             {project.riba_stage && <Badge variant="outline" className="text-[10px]">{stageLabel(project.riba_stage)}</Badge>}
             {project.sector && (
@@ -119,15 +129,37 @@ export default function ProjectDetail() {
 
         <TabsContent value="overview" className="mt-4">
           <Card className="p-4 space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <div><p className="text-xs text-muted-foreground">Start</p><p className="font-medium">{project.start_date || project.baseline_start_date || "—"}</p></div>
-              <div><p className="text-xs text-muted-foreground">End</p><p className="font-medium">{project.end_date || project.baseline_end_date || "—"}</p></div>
-              <div><p className="text-xs text-muted-foreground">Budgeted Hours</p><p className="font-medium">{project.budgeted_hours || "—"}</p></div>
-              <div><p className="text-xs text-muted-foreground">Actual Hours</p><p className="font-medium">{project.actual_hours || "—"}</p></div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 text-sm">
+              {[
+                ["Project Code", project.project_code, "font-mono"],
+                ["Client", project.client_name],
+                ["Project Manager", project.project_manager],
+                ["Sector", project.sector?.replace(/_/g, " "), "capitalize"],
+                ["Status", project.status?.replace(/_/g, " "), "capitalize"],
+                ["RIBA Stage", project.riba_stage ? stageLabel(project.riba_stage) : null],
+                ["Start", project.start_date],
+                ["End", project.end_date],
+                ["Baseline Start", project.baseline_start_date],
+                ["Baseline End", project.baseline_end_date],
+                ["Actual Start", project.actual_start_date],
+                ["Actual End", project.actual_end_date],
+                ["Budgeted Hours", project.budgeted_hours],
+                ["Actual Hours", project.actual_hours],
+                ["Work Sections", sections.length],
+                ["Progress", progress != null ? `${progress}%` : null],
+              ].map(([label, value, cls = ""]) => (
+                <div key={label}>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className={`font-medium ${cls}`}>
+                    {value === 0 || value ? value : "—"}
+                  </p>
+                </div>
+              ))}
             </div>
-            {project.description && (
-              <p className="text-sm text-muted-foreground border-t pt-3">{project.description}</p>
-            )}
+            <div className="border-t pt-3">
+              <p className="text-xs text-muted-foreground mb-1">Description</p>
+              <p className="text-sm">{project.description || "—"}</p>
+            </div>
           </Card>
         </TabsContent>
 
@@ -199,6 +231,21 @@ export default function ProjectDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ProjectFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        project={project}
+        sections={sections}
+        projects={projects}
+        employees={employees}
+        saving={updateMut.isPending}
+        onSave={(data) => {
+          const { id, created_at, updated_at, created_date, updated_date, ...rest } = data;
+          updateMut.mutate({ id: project.id, data: rest, toastMessage: "Project updated" });
+          setEditOpen(false);
+        }}
+      />
     </div>
   );
 }
