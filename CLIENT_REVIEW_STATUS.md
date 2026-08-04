@@ -128,25 +128,3 @@ salary figures, as well as from changing them.
 explanation above), and typing over the invoice number.
 
 **For a separate discussion** — the three new modules above.
-
----
-
-## One thing we would recommend
-
-**Through the website, the access rules hold.** If an Ops User types the web
-address of an admin page straight into their browser, they get "Access denied".
-Every page checks the person's role before it shows anything, and project and
-work-section pages check again for that particular record. Guessing a link gets
-you nowhere.
-
-**Outside the website, they do not.** The rules live in the application, not in
-the database. Someone signed in with an ordinary account, using a technical tool
-rather than the website, could still read data the screens would never show them
-— salaries, invoices, the audit log — because the database itself currently
-accepts any signed-in user.
-
-This needs somebody with a valid login, some technical knowledge and deliberate
-intent; it is not something a user stumbles into. But we would recommend closing
-it before the system holds real salary and client financial information. The
-rules are already written down in one place, so it is a contained piece of work
-rather than a rebuild.
