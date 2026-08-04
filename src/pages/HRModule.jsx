@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Pencil, Trash2, UserPlus, Upload, Download, FileText, X, ChevronLeft, ChevronRight, FileArchive } from "lucide-react";
+import { Search, Pencil, Trash2, UserPlus, Upload, Download, FileText, X, ChevronLeft, ChevronRight, FileArchive, Check, KeyRound } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -28,6 +28,7 @@ import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { Users, UserCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { provisionEmployeeAccount, DEFAULT_EMPLOYEE_PASSWORD } from "@/lib/employeeAccounts";
+import { WIZARD_STEPS, STEP_LABELS, missingForStep, isStepComplete, missingForOnboarding, canOnboard, firstIncompleteStep, nextStep, prevStep, isStepReachable } from "@/lib/onboardingSteps";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -38,6 +39,7 @@ const ROLES = ["director", "associate_director", "senior_consultant", "consultan
 const PERF_RATINGS = ["exceptional", "exceeds_expectations", "meets_expectations", "needs_improvement", "unsatisfactory"];
 const NO_MANAGER = "__none__";
 const EMP_DOCS_BUCKET = "employee-docs";
+
 
 const ONBOARDING_STEPS = [
   { key: "document_collection", label: "Document Collection" },
@@ -101,6 +103,7 @@ export default function HRModule() {
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [form, setForm] = useState(defaultForm);
   const [formTab, setFormTab] = useState("personal");
+  const [draftEmployee, setDraftEmployee] = useState(null);
   const [detailTab, setDetailTab] = useState("personal");
   const [skillInput, setSkillInput] = useState("");
   const [uploadingContract, setUploadingContract] = useState(false);
@@ -131,8 +134,12 @@ export default function HRModule() {
   );
 
   const createMut = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async ({ data, keepOpen }) => {
       const employee = await base44.entities.Employee.create(data);
+
+      // A draft is not an onboarded person, so it gets no login yet — HR can
+      // create one from the Role step whenever they are ready.
+      if (keepOpen) return { employee, keepOpen, provisionWarning: null };
 
       // Login provisioning is best-effort: if it fails we keep the employee
       // record (no destructive rollback that could leave a ghost row), and
@@ -144,13 +151,21 @@ export default function HRModule() {
           fullName: employee.full_name,
           appRole: employee.app_role,
         });
-        return { employee, provisionWarning: null };
+        return { employee, keepOpen, provisionWarning: null };
       } catch (error) {
-        return { employee, provisionWarning: error.message };
+        return { employee, keepOpen, provisionWarning: error.message };
       }
     },
-    onSuccess: ({ employee, provisionWarning }) => {
+    onSuccess: ({ employee, keepOpen, provisionWarning }) => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
+      if (keepOpen) {
+        // Stay in the wizard, but remember the row so carrying on editing
+        // updates this draft rather than creating a second one.
+        setDraftEmployee(employee);
+        setProvisionError("");
+        setProvisionMessage(`Draft saved for ${employee.full_name}. It is waiting on the Onboarding tab.`);
+        return;
+      }
       setDialogOpen(false);
       if (provisionWarning) {
         setProvisionMessage("");
@@ -169,7 +184,34 @@ export default function HRModule() {
       setProvisionError(dup ? "An employee with this email already exists (it may be from a previous attempt — check the Onboarding tab)." : error.message);
     },
   });
-  const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Employee.update(id, data), meta: { successMessage: "Employee updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDialogOpen(false); setEditing(null); } });
+  const updateMut = useMutation({
+    mutationFn: async ({ id, data, provision }) => {
+      const employee = await base44.entities.Employee.update(id, data);
+      if (!provision) return { employee, provisionWarning: null };
+      // Same best-effort contract as creation: never lose the record over a
+      // failed login, but say so.
+      try {
+        await provisionEmployeeAccount({
+          employeeId: id, email: data.email, fullName: data.full_name, appRole: data.app_role,
+        });
+        return { employee, provisionWarning: null };
+      } catch (error) {
+        return { employee, provisionWarning: error.message };
+      }
+    },
+    meta: { successMessage: (_r, v) => (v?.keepOpen ? "Draft saved" : "Employee updated") },
+    onSuccess: ({ provisionWarning }, { keepOpen }) => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      if (keepOpen) return; // stay in the wizard so HR can carry on
+      setDialogOpen(false);
+      setEditing(null);
+      setDraftEmployee(null);
+      if (provisionWarning) {
+        setProvisionMessage("");
+        setProvisionError(`Employee onboarded, but the login account could not be created: ${provisionWarning}`);
+      }
+    },
+  });
   // Provisioning is best-effort during onboarding, so give HR a way to retry
   // rather than leaving a new hire permanently unable to sign in. The edge
   // function is idempotent — it resets the password if the account exists.
@@ -181,13 +223,25 @@ export default function HRModule() {
       successMessage: (_r, emp) =>
         `🎉 ${emp.email} can sign in with the temporary password "${DEFAULT_EMPLOYEE_PASSWORD}"`,
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employees"] }),
   });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Employee.delete(id), meta: { successMessage: "Employee deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employees"] }); setDeleteId(null); } });
 
-  const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("personal"); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setDraftEmployee(null); setForm(defaultForm); setFormTab("personal"); setProvisionError(""); setProvisionMessage(""); setDialogOpen(true); };
   // `?? ""` not `|| ""`: a stored 0 is a real value, and `||` blanked it in the
   // form, so reopening a record showed an empty rate or salary.
-  const openEdit = (e) => { setEditing(e); setForm({ ...defaultForm, ...e, hourly_rate: e.hourly_rate ?? "", cost_rate: e.cost_rate ?? "", salary: e.salary ?? "", kpi_score: e.kpi_score ?? "", contracts: e.contracts || [], documents: e.documents || [] }); setFormTab("personal"); setDialogOpen(true); };
+  const openEdit = (e) => {
+    setEditing(e);
+    setDraftEmployee(null);
+    const next = { ...defaultForm, ...e, hourly_rate: e.hourly_rate ?? "", cost_rate: e.cost_rate ?? "", salary: e.salary ?? "", kpi_score: e.kpi_score ?? "", contracts: e.contracts || [], documents: e.documents || [] };
+    setForm(next);
+    // Resume a part-finished record where it was left off; a completed one
+    // opens at the front, since it is being edited rather than worked through.
+    setFormTab(e.onboarding_status === "completed" ? "personal" : firstIncompleteStep(next));
+    setProvisionError("");
+    setProvisionMessage("");
+    setDialogOpen(true);
+  };
   const openDetail = (e) => { setSelectedEmp(e); setDetailTab("personal"); };
 
   // ── File uploads (contract + documents) → PRIVATE "employee-docs" bucket ──
@@ -245,20 +299,36 @@ export default function HRModule() {
       URL.revokeObjectURL(a.href);
     } catch (err) { setProvisionError(err.message || "Could not build zip."); }
   };
-  const handleSave = (ev) => {
+  // Where the wizard stands. An already-onboarded employee is being edited
+  // rather than worked through, so it navigates freely and saves in one press.
+  const isEditingOnboarded = editing?.onboarding_status === "completed";
+  const savingEmployee = createMut.isPending || updateMut.isPending;
+  const stepMissing = missingForStep(formTab, form);
+  const stepDone = stepMissing.length === 0;
+  const outstanding = missingForOnboarding(form);
+  const readyToOnboard = canOnboard(form);
+  // Read the draft back from the roster rather than trusting the snapshot
+  // taken at creation, so a login made mid-wizard is seen.
+  const loginTarget = editing || (draftEmployee && (employees.find(e => e.id === draftEmployee.id) || draftEmployee));
+  const hasLogin = !!loginTarget?.user_id;
+
+  const handleSave = (ev, mode = "onboard") => {
     ev.preventDefault();
     setProvisionMessage("");
     setProvisionError("");
     // Manual validation — required fields live across tabs that may be unmounted.
-    if (!form.full_name || !form.email || !form.department) {
+    if (!String(form.full_name || "").trim() || !form.email) {
       setFormTab("personal");
-      setProvisionError("Full name, email and department are required.");
+      setProvisionError("A draft still needs a full name and an email address.");
       return;
     }
-    if (!form.role) {
-      setFormTab("role");
-      setProvisionError("Seniority (role) is required.");
-      return;
+    if (mode !== "draft" && !isEditingOnboarded) {
+      const outstandingNow = missingForOnboarding(form);
+      if (outstandingNow.length > 0) {
+        setFormTab(firstIncompleteStep(form));
+        setProvisionError(`Still outstanding: ${outstandingNow.join(", ")}.`);
+        return;
+      }
     }
     // Email must be unique across employees (DB enforces it too).
     const emailLower = form.email.trim().toLowerCase();
@@ -296,17 +366,31 @@ export default function HRModule() {
       // manager) could demote an onboarded employee back to "in progress", which
       // hid them from the All Employees list and looked like deletion. Status may
       // still be earned upward; it is never taken away by an edit.
+      // Onboarding completion is a milestone, not a live calculation, and it is
+      // reached by pressing Onboard — never by saving a draft that happens to
+      // have every box ticked. Status may still be earned upward; it is never
+      // taken away by an edit.
       onboarding_status: editing?.onboarding_status === "completed"
         ? "completed"
-        : deriveOnboardingStatus(checklist),
+        : mode === "draft"
+          ? (deriveOnboardingStatus(checklist) === "not_started" ? "not_started" : "in_progress")
+          : deriveOnboardingStatus(checklist),
       notes: emptyToNull(form.notes),
       skills: Array.isArray(form.skills) && form.skills.length > 0 ? form.skills : null,
     };
-    if (editing) {
+    const existing = editing || draftEmployee;
+    if (existing) {
       const { id, ...updateData } = data;
-      updateMut.mutate({ id: editing.id, data: updateData });
+      updateMut.mutate({
+        id: existing.id,
+        data: updateData,
+        keepOpen: mode === "draft",
+        // Completing a draft is the moment the person becomes staff, so it is
+        // also the moment they need a way in.
+        provision: mode !== "draft" && !!draftEmployee && !hasLogin,
+      });
     } else {
-      createMut.mutate(data);
+      createMut.mutate({ data, keepOpen: mode === "draft" });
     }
   };
   const addSkill = () => { if (skillInput.trim()) { setForm(f => ({ ...f, skills: [...(f.skills || []), skillInput.trim()] })); setSkillInput(""); } };
@@ -334,13 +418,13 @@ export default function HRModule() {
     <div className="space-y-4">
       <PageHeader title="HR Module" description="Manage employees and onboarding" />
 
-      {provisionMessage && (
+      {!dialogOpen && provisionMessage && (
         <Alert>
           <AlertDescription>{provisionMessage}</AlertDescription>
         </Alert>
       )}
 
-      {provisionError && (
+      {!dialogOpen && provisionError && (
         <Alert variant="destructive">
           <AlertDescription>{provisionError}</AlertDescription>
         </Alert>
@@ -573,13 +657,24 @@ export default function HRModule() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit Employee" : "Onboard Employee"}</DialogTitle></DialogHeader>
+          {provisionMessage && <Alert><AlertDescription>{provisionMessage}</AlertDescription></Alert>}
+          {provisionError && <Alert variant="destructive"><AlertDescription>{provisionError}</AlertDescription></Alert>}
           <form onSubmit={handleSave} className="space-y-4">
             <Tabs value={formTab} onValueChange={setFormTab}>
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="personal">1. Personal</TabsTrigger>
-                <TabsTrigger value="role">2. Role</TabsTrigger>
-                <TabsTrigger value="contracts">3. Contracts</TabsTrigger>
-                <TabsTrigger value="documents">4. Documents</TabsTrigger>
+                {WIZARD_STEPS.map((step, i) => (
+                  <TabsTrigger
+                    key={step}
+                    value={step}
+                    disabled={!isEditingOnboarded && !isStepReachable(step, form)}
+                    title={!isEditingOnboarded && !isStepReachable(step, form) ? "Finish the earlier steps first" : undefined}
+                  >
+                    {isStepComplete(step, form)
+                      ? <Check className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                      : <span className="mr-1">{i + 1}.</span>}
+                    {STEP_LABELS[step]}
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
               {/* STEP 1 — Personal */}
@@ -590,7 +685,7 @@ export default function HRModule() {
                   <div className="space-y-1.5"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} /></div>
                   <div className="space-y-1.5"><Label>Job Title</Label><Input value={form.job_title} onChange={e => setForm(f => ({...f, job_title: e.target.value}))} /></div>
                   <div className="space-y-1.5"><Label>Department *</Label><Select value={form.department} onValueChange={v => setForm(f => ({...f, department: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select></div>
-                  <div className="space-y-1.5"><Label>Start Date</Label><Input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))} /></div>
+                  <div className="space-y-1.5"><Label>Start Date *</Label><Input type="date" value={form.start_date} onChange={e => setForm(f => ({...f, start_date: e.target.value}))} /></div>
                   <div className="space-y-1.5 col-span-2">
                     <Label>Manager</Label>
                     <Select value={form.manager_id || NO_MANAGER} onValueChange={v => setForm(f => ({ ...f, manager_id: v === NO_MANAGER ? "" : v }))}>
@@ -615,9 +710,9 @@ export default function HRModule() {
               <TabsContent value="role" className="mt-4 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5"><Label>Seniority (Role) *</Label><Select value={form.role} onValueChange={v => setForm(f => ({...f, role: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select></div>
-                  <div className="space-y-1.5"><Label>System Role</Label><Select value={form.app_role} onValueChange={v => setForm(f => ({...f, app_role: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{roleOptions.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}</SelectContent></Select></div>
+                  <div className="space-y-1.5"><Label>System Role *</Label><Select value={form.app_role} onValueChange={v => setForm(f => ({...f, app_role: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{roleOptions.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}</SelectContent></Select></div>
                   <div className="space-y-1.5"><Label>Charge Rate ({currency.symbol}/hr)</Label><Input type="number" value={form.hourly_rate} onChange={e => setForm(f => ({...f, hourly_rate: e.target.value}))} /></div>
-                  <div className="space-y-1.5"><Label>Cost Rate ({currency.symbol}/hr)</Label><Input type="number" value={form.cost_rate} onChange={e => setForm(f => ({...f, cost_rate: e.target.value}))} /></div>
+                  <div className="space-y-1.5"><Label>Cost Rate ({currency.symbol}/hr) *</Label><Input type="number" value={form.cost_rate} onChange={e => setForm(f => ({...f, cost_rate: e.target.value}))} /></div>
                   <div className="space-y-1.5"><Label>Annual Salary ({currency.symbol})</Label><Input type="number" value={form.salary} onChange={e => setForm(f => ({...f, salary: e.target.value}))} /></div>
                   <div className="space-y-1.5"><Label>Status</Label><Select value={form.status} onValueChange={v => setForm(f => ({...f, status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="on_leave">On Leave</SelectItem><SelectItem value="terminated">Terminated</SelectItem></SelectContent></Select></div>
                 </div>
@@ -627,12 +722,34 @@ export default function HRModule() {
                     Set by assigning work sections to this person, so it stays in step on its own.
                   </p>
                 </div>
+
+                {/* Provisioning needs a saved record to attach the account to,
+                    so it waits for a draft rather than being hidden away. */}
+                <div className="rounded-md border p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label>Login account</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {!loginTarget
+                          ? "Save a draft first — the login attaches to a saved employee record."
+                          : hasLogin
+                            ? `${form.email || "This employee"} already has a login. Resetting sends them back to the temporary password.`
+                            : `Creates the sign-in for ${form.email || "this employee"}, with a temporary password.`}
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="shrink-0"
+                      disabled={!canEditEmp || !loginTarget || provisionMut.isPending}
+                      onClick={() => provisionMut.mutate({ ...loginTarget, email: form.email, full_name: form.full_name, app_role: form.app_role })}>
+                      <KeyRound className="h-4 w-4 mr-1.5" />{provisionMut.isPending ? "Creating…" : hasLogin ? "Reset login" : "Create login"}
+                    </Button>
+                  </div>
+                </div>
               </TabsContent>
 
               {/* STEP 3 — Contracts */}
               <TabsContent value="contracts" className="mt-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Contracts <span className="text-xs text-muted-foreground font-normal">(newest is marked active)</span></Label>
+                  <Label>Contracts * <span className="text-xs text-muted-foreground font-normal">(newest is marked active)</span></Label>
                   <div>
                     <input ref={contractInputRef} type="file" className="hidden" onChange={e => { uploadContract(e.target.files?.[0]); if (contractInputRef.current) contractInputRef.current.value = ""; }} />
                     <Button type="button" variant="outline" size="sm" disabled={uploadingContract} onClick={() => contractInputRef.current?.click()}>
@@ -646,7 +763,7 @@ export default function HRModule() {
               {/* STEP 4 — Documents */}
               <TabsContent value="documents" className="mt-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Document Collection</Label>
+                  <Label>Document Collection *</Label>
                   <div>
                     <input ref={docInputRef} type="file" className="hidden" onChange={e => { uploadDocument(e.target.files?.[0]); if (docInputRef.current) docInputRef.current.value = ""; }} />
                     <Button type="button" variant="outline" size="sm" disabled={uploadingDoc} onClick={() => docInputRef.current?.click()}>
@@ -667,12 +784,44 @@ export default function HRModule() {
               </TabsContent>
             </Tabs>
 
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              {/* Edit mode: Update directly. Onboarding (new): step Next → Next → Next → Update. */}
-              {!editing && formTab !== "documents"
-                ? <Button type="button" onClick={() => setFormTab({ personal: "role", role: "contracts", contracts: "documents" }[formTab])}>Next</Button>
-                : <Button type="submit" disabled={createMut.isPending || updateMut.isPending}>{createMut.isPending || updateMut.isPending ? "Saving…" : (editing ? "Update" : "Onboard")}</Button>}
+            {/* Say what is holding the step up rather than leaving a dead button. */}
+            {!isEditingOnboarded && !stepDone && (
+              <p className="text-xs text-amber-700 dark:text-amber-500">
+                Still needed on this step: {stepMissing.join(", ")}.
+              </p>
+            )}
+            {!isEditingOnboarded && stepDone && formTab === "documents" && !readyToOnboard && (
+              <p className="text-xs text-amber-700 dark:text-amber-500">
+                Before onboarding: {outstanding.join(", ")}.
+              </p>
+            )}
+
+            <DialogFooter className="gap-2 flex-wrap sm:justify-between">
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                {prevStep(formTab) && (
+                  <Button type="button" variant="outline" onClick={() => setFormTab(prevStep(formTab))}>Back</Button>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {isEditingOnboarded ? (
+                  <Button type="submit" disabled={savingEmployee}>{savingEmployee ? "Saving…" : "Save Changes"}</Button>
+                ) : (
+                  <>
+                    <Button type="button" variant="outline" disabled={savingEmployee}
+                      onClick={ev => handleSave(ev, "draft")}>
+                      {savingEmployee ? "Saving…" : "Save as Draft"}
+                    </Button>
+                    {nextStep(formTab)
+                      ? <Button type="button" disabled={!stepDone} title={stepDone ? undefined : "Complete this step first"}
+                          onClick={() => setFormTab(nextStep(formTab))}>Next</Button>
+                      : <Button type="submit" disabled={!readyToOnboard || savingEmployee}
+                          title={readyToOnboard ? undefined : "Fill in every step first"}>
+                          {savingEmployee ? "Saving…" : "Onboard"}
+                        </Button>}
+                  </>
+                )}
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
