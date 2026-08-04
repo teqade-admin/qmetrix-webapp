@@ -11,13 +11,13 @@ at https://teqade-admin.github.io/qmetrix-webapp/
 
 | Status | Count |
 |---|---|
-| ✅ Done | 30 |
+| ✅ Done | 31 |
 | 🟡 Partly done | 1 |
 | ⏸️ Not doing (agreed) | 2 |
-| ⬜ Not started | 4 |
+| ⬜ Not started | 3 |
 
-Of the four not started, three are new modules that need scoping with you
-(User Management, Reports, Recruitment). The fourth is set out at the end.
+The three not started are new modules that need scoping with you:
+User Management, Reports, and Recruitment.
 
 ---
 
@@ -84,7 +84,7 @@ Of the four not started, three are new modules that need scoping with you
 | User Management module | ⬜ | Not started. A centralised console for users and permissions. Needs scoping with you. |
 | Reports module | ⬜ | Not started. Needs scoping — which reports, in what format, and who receives them. |
 | Audit Log module | ✅ | Delivered, under Data → Audit Log. Records every change across the system: who, when, and the exact before and after of each field. Recorded in the database itself, so it also covers changes made outside these screens. Visibility follows the reporting line — your own actions, your team's at any level, and company-wide for Super Admin. Filterable by module, action and free text. |
-| Onboarding wizard step-level validation | ⬜ | Not started. The wizard currently allows moving between steps without completing the required fields. |
+| Onboarding wizard step-level validation | ✅ | Every step is now mandatory. **Next** stays greyed until the step in front of you is complete, the tab strip will not let you skip ahead, and each step lists exactly what is outstanding rather than leaving a dead button. The final step offers **Save as Draft** and **Onboard**, with Onboard greyed until every step is filled in — a draft can never become "onboarded" by accident. What the steps ask for is exactly what the onboarding checklist counts as onboarded, so the two can no longer disagree. A **Create login** button sits on the Role step beside the system role it grants; it turns on once a draft is saved, and reads "Reset login" when the person already has one, so an existing password is never reset unknowingly. **Existing staff are unaffected** — 12 of your 13 onboarded employees have no contract or document on file, and editing them is deliberately exempt from the new rules. |
 | Recruitment / Applicant Tracking module | ⬜ | Not started. A new module — needs scoping with you. |
 | Filter option to be added in all the sections | ✅ | Search and filters added to Team, Resource Allocation, Resource Monitor, Deliverables, Workflow and Employment, alongside those already in place. Long lists are now paged rather than rendered in full. |
 | Logo change | ✅ | Administration → Settings uploads and changes the company logo, along with company name and subtitle. Uploading your preferred image is all that remains. |
@@ -114,8 +114,8 @@ Of the four not started, three are new modules that need scoping with you
 **Needs scoping with you** — three new modules: **User Management**, **Reports**,
 and **Recruitment / Applicant Tracking**.
 
-**Small, ready when you are** — onboarding wizard step validation, and finishing
-the consolidation of financial subtotals.
+**Small, ready when you are** — finishing the consolidation of financial
+subtotals.
 
 **Awaiting your decision** — whether HR User should be prevented from *seeing*
 salary as well as editing it.
