@@ -1,4 +1,4 @@
-# QMetrix — Where We Are With Your Review
+# QMetrix — Review Response
 
 This is our reply to every point you raised. Anything marked Done is already
 working on the live site: https://teqade-admin.github.io/qmetrix-webapp/
@@ -133,14 +133,20 @@ explanation above), and typing over the invoice number.
 
 ## One thing we would recommend
 
-All the access rules described here are enforced inside the application. They
-control what each person sees and can do through the screens, which is what
-matters for everyday use.
+**Through the website, the access rules hold.** If an Ops User types the web
+address of an admin page straight into their browser, they get "Access denied".
+Every page checks the person's role before it shows anything, and project and
+work-section pages check again for that particular record. Guessing a link gets
+you nowhere.
 
-They are not yet enforced by the database itself. In practice that means the
-protection is very good against ordinary mistakes, but not absolute against
-someone deliberately going around the application.
+**Outside the website, they do not.** The rules live in the application, not in
+the database. Someone signed in with an ordinary account, using a technical tool
+rather than the website, could still read data the screens would never show them
+— salaries, invoices, the audit log — because the database itself currently
+accepts any signed-in user.
 
-We would recommend adding that second layer before the system holds real salary
-and client financial data. The rules are already written down in one place, so
-this is a contained piece of work rather than a rebuild.
+This needs somebody with a valid login, some technical knowledge and deliberate
+intent; it is not something a user stumbles into. But we would recommend closing
+it before the system holds real salary and client financial information. The
+rules are already written down in one place, so it is a contained piece of work
+rather than a rebuild.
