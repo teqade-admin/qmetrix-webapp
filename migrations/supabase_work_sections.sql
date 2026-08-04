@@ -109,3 +109,20 @@ CREATE POLICY "Authenticated users can write work sections"
   ON public.work_sections FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.work_sections TO authenticated;
+
+-- The audit trigger is attached per table by supabase_audit_log.sql, which only
+-- sees tables that exist when it runs. This table is created afterwards, so it
+-- has to attach its own — otherwise edits to work sections go unrecorded and
+-- the activity feed on a section stays empty.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'record_audit_log') THEN
+    DROP TRIGGER IF EXISTS audit_work_sections ON public.work_sections;
+    CREATE TRIGGER audit_work_sections
+      AFTER INSERT OR UPDATE OR DELETE ON public.work_sections
+      FOR EACH ROW EXECUTE FUNCTION public.record_audit_log();
+    RAISE NOTICE 'Audit trigger attached to work_sections';
+  ELSE
+    RAISE NOTICE 'record_audit_log not found — run supabase_audit_log.sql first';
+  END IF;
+END $$;
