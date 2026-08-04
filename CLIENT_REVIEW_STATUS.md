@@ -105,7 +105,7 @@ Of the four not started, three are new modules that need scoping with you
 | Many actions give no confirmation | ✅ | Every action now confirms — green for success, red for failure — naming what happened ("Timesheet approved", "Expense approved"). Confirmations clear on their own, and the close button works. |
 | Start Date and other wizard fields not persisted | ✅ | We audited all 21 fields the onboarding wizard collects, and every one saves correctly. Three genuine faults were found and fixed in the process: a stored value of 0 displayed as blank, and clearing a rate, salary or manager silently kept the previous value. |
 | "Add Section" does nothing; document/view icon next to invoices and expenses does nothing | ✅ | "Add Section" was submitting the form instead of adding a section, so the dialog closed and nothing appeared. The invoice PDF button failed silently when generation errored, and now reports what went wrong. |
-| KPI & Performance defaults to a data-less quarter, showing "KPI Score 0" | ✅ | Of 1,000 timesheet entries, none fall in the current quarter, so every user's first view of their scorecard showed zero. It now opens on the most recent period that contains data. |
+| KPI & Performance defaults to a data-less quarter, showing "KPI Score 0" | ✅ | The scorecard opens on the **last complete quarter** rather than the current one. The current quarter is still being logged into, so every metric reads low: today it holds 4 timesheet entries against 975 in the quarter just closed. Four employees still score 0 because they have logged no time at all this year — that is a real result rather than a defaulting fault. |
 
 ---
 
