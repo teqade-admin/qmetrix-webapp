@@ -53,21 +53,21 @@ export function periodRange(key) {
 }
 
 /**
- * The newest period that actually contains timesheet data, so a scorecard does
- * not open on an empty current quarter and report a discouraging score of 0.
- * Falls back to the newest period when there is no data at all.
+ * The last complete quarter — what a scorecard opens on.
  *
- * @param {{key: string}[]} periods - newest first, from periodOptions().
- * @param {{date: string}[]} timesheets
+ * The current quarter is a partial one: time is still being logged into it, so
+ * every metric reads low and a new user's first look at their own scorecard was
+ * a discouraging "KPI Score 0". The previous quarter is finished, so what it
+ * shows is a settled result rather than a quarter half-lived.
+ *
+ * It is a fixed choice rather than "the newest quarter with any data in it".
+ * That earlier rule went by the whole company's timesheets, so a single person
+ * logging one entry into the new quarter moved everybody's default onto it and
+ * put the zeros straight back.
  */
-export function firstPeriodWithData(periods, timesheets) {
-  if (!periods?.length) return null;
-  const rows = Array.isArray(timesheets) ? timesheets : [];
-  const found = periods.find((p) => {
-    const range = periodRange(p.key);
-    return rows.some((t) => withinRange(t?.date, range));
-  });
-  return (found || periods[0]).key;
+export function previousQuarter(now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  return `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`;
 }
 
 function withinRange(dateStr, range) {
