@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -119,6 +120,8 @@ export default function ResourceAllocation() {
   // 6-month window for forecast
   const forecastMonths = Array.from({ length: 6 }, (_, i) => addMonths(startOfMonth(new Date()), i));
 
+  const visibleAllocationsPager = usePagination(visibleAllocations, 12);
+
   return (
     <div className="space-y-4">
       <PageHeader title="Resource Allocation" description="Assign staff, track utilization and forecast resource needs" actionLabel={canEdit ? "New Allocation" : undefined} onAction={canEdit ? openNew : undefined} />
@@ -165,7 +168,7 @@ export default function ResourceAllocation() {
                     <th className="p-3 w-20"></th>
                   </tr></thead>
                   <tbody>
-                    {visibleAllocations.map(a => (
+                    {visibleAllocationsPager.pageItems.map(a => (
                       <tr key={a.id} className="border-b hover:bg-muted/20">
                         <td className="p-3 font-medium">{a.employee_name}</td>
                         <td className="p-3 text-muted-foreground">{a.project_name}</td>
@@ -186,6 +189,7 @@ export default function ResourceAllocation() {
                     ))}
                   </tbody>
                 </table>
+            <Pagination {...visibleAllocationsPager} />
               </div>
             )}
           </Card>

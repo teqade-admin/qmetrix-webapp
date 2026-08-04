@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -91,6 +92,8 @@ export default function DataManagement() {
   // Folder structure (role-scoped).
   const docsByFolder = folders.reduce((acc, f) => { acc[f] = visibleDocs.filter(d => (d.folder || "General").includes(f)); return acc; }, {});
 
+  const filteredPager = usePagination(filtered, 12);
+
   return (
     <div className="space-y-4">
       <PageHeader title="Data Management" description="Centralized document repository with version control" actionLabel="Upload Document" onAction={() => { setForm({ ...defaultForm, uploaded_by: uploadedBy }); setFile(null); setDialogOpen(true); }}>
@@ -120,7 +123,7 @@ export default function DataManagement() {
                     <th className="p-3 w-20"></th>
                   </tr></thead>
                   <tbody>
-                    {filtered.map(doc => (
+                    {filteredPager.pageItems.map(doc => (
                       <tr key={doc.id} className="border-b hover:bg-muted/20">
                         <td className="p-3">
                           <div className="flex items-center gap-2">
@@ -144,6 +147,7 @@ export default function DataManagement() {
                     ))}
                   </tbody>
                 </table>
+            <Pagination {...filteredPager} />
               </div>
             )}
           </Card>

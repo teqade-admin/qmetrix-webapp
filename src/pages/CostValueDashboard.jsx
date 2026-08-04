@@ -1,4 +1,5 @@
 import React from "react";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +55,8 @@ export default function CostValueDashboard() {
   const totalEarned = projectMetrics.reduce((s, p) => s + p.earnedValue, 0);
   const totalActualCost = projectMetrics.reduce((s, p) => s + (p.cost_to_date || 0), 0);
   const costVariance = totalEarned - totalActualCost;
+
+  const projectMetricsPager = usePagination(projectMetrics, 10);
 
   return (
     <div className="space-y-6">
@@ -124,7 +127,7 @@ export default function CostValueDashboard() {
                 <th className="text-left p-3 font-medium text-muted-foreground">Progress</th>
               </tr></thead>
               <tbody>
-                {projectMetrics.map(p => (
+                {projectMetricsPager.pageItems.map(p => (
                   <tr key={p.id} className="border-b hover:bg-muted/20">
                     <td className="p-3"><p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.client_name}</p></td>
                     <td className="p-3 text-right font-medium">{formatMoney(p.fee_agreed || 0, currency)}</td>
@@ -140,6 +143,7 @@ export default function CostValueDashboard() {
                 {projectMetrics.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No active projects</td></tr>}
               </tbody>
             </table>
+            <Pagination {...projectMetricsPager} />
           </div>
         </CardContent>
       </Card>

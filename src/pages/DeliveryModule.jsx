@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
@@ -194,6 +195,8 @@ export default function DeliveryModule() {
   const approved = deliverables.filter(d => d.overall_status === "approved").length;
   const overdue = deliverables.filter(d => d.due_date && new Date(d.due_date) < new Date() && d.overall_status !== "approved").length;
 
+  const filteredPager = usePagination(filtered, 10);
+
   return (
     <div className="space-y-4">
       <PageHeader title="Delivery Module" description="QA/QC workflow using OCRA — Originator, Checker, Reviewer, Authoriser" actionLabel={canEdit ? "New Deliverable" : undefined} onAction={canEdit ? openNew : undefined}>
@@ -245,7 +248,7 @@ export default function DeliveryModule() {
                   <th className="p-3 w-20"></th>
                 </tr></thead>
                 <tbody>
-                  {filtered.map(d => (
+                  {filteredPager.pageItems.map(d => (
                     <tr key={d.id} className="border-b hover:bg-muted/20 cursor-pointer" onClick={() => setSelectedDeliverable(d)}>
                       <td className="p-3 font-medium">{d.title}</td>
                       <td className="p-3 text-muted-foreground text-xs">{d.project_name}</td>
@@ -272,6 +275,7 @@ export default function DeliveryModule() {
                   {filtered.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No deliverables found</td></tr>}
                 </tbody>
               </table>
+            <Pagination {...filteredPager} />
             </div>
           </Card>
         </TabsContent>
