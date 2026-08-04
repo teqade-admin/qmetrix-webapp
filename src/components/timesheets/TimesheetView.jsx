@@ -39,8 +39,11 @@ const RIBA_STAGES = [
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Radix Select cannot hold an empty string as a value.
+const NO_WORK_SECTION = "__none__";
+
 const defaultForm = {
-  employee_name: "", project_name: "", date: "", hours: "",
+  employee_name: "", project_name: "", work_section_id: "", date: "", hours: "",
   task_description: "", riba_stage: "general", billable: true, status: "draft", week_ending: ""
 };
 
@@ -81,6 +84,17 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
     queryKey: ["projects"],
     queryFn: () => base44.entities.Project.list()
   });
+  const { data: workSections = [] } = useQuery({
+    queryKey: ["work_sections"],
+    queryFn: () => base44.entities.WorkSection.list()
+  });
+
+  const projectNameById = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
+  // Only work still outstanding, assigned to this person, is worth booking to.
+  const myWorkSections = useMemo(
+    () => workSections.filter(w => w.assignee_name === currentEmployeeName && w.status !== "completed"),
+    [workSections, currentEmployeeName]
+  );
 
   // Restrict the dataset to the active scope.
   // Managers (team scope) only ever see submitted entries onward — never an employee's drafts.
@@ -198,7 +212,7 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
     }
 
     const weekEnding = format(endOfWeek(parseISO(form.date), { weekStartsOn: 1 }), "yyyy-MM-dd");
-    const data = { ...form, hours: Number(form.hours), week_ending: weekEnding };
+    const data = { ...form, hours: Number(form.hours), week_ending: weekEnding, work_section_id: form.work_section_id || null };
     if (editing) {
       const { id, ...updateData } = data;
       updateMut.mutate({ id: editing.id, data: updateData });
@@ -477,6 +491,37 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
               <div className="space-y-1.5 col-span-2">
                 <Label>Employee *</Label>
                 <Input value={currentEmployeeName} disabled />
+              </div>
+              {/* Booking against assigned work fills the project and stage in, so
+                  hours land on the package they belong to rather than only a project. */}
+              <div className="space-y-1.5 col-span-2">
+                <Label>Work assigned to me</Label>
+                <Select
+                  value={form.work_section_id || NO_WORK_SECTION}
+                  onValueChange={v => {
+                    if (v === NO_WORK_SECTION) return setForm(f => ({ ...f, work_section_id: "" }));
+                    const ws = myWorkSections.find(w => w.id === v);
+                    setForm(f => ({
+                      ...f,
+                      work_section_id: v,
+                      project_name: projectNameById.get(ws?.project_id) || f.project_name,
+                      task_description: f.task_description || ws?.title || "",
+                    }));
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Log time without a work section" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_WORK_SECTION}>None — log time directly</SelectItem>
+                    {myWorkSections.map(w => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.title}{projectNameById.get(w.project_id) ? ` · ${projectNameById.get(w.project_id)}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {myWorkSections.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">No work is assigned to you yet.</p>
+                )}
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Project *</Label>

@@ -42,7 +42,6 @@ const defaultForm = {
   baseline_start_date: "", baseline_end_date: "",
   actual_start_date: "", actual_end_date: "",
   budgeted_hours: "", actual_hours: "",
-  work_sections: []
 };
 
 export default function Projects() {
@@ -78,6 +77,25 @@ export default function Projects() {
   });
   const bidById = React.useMemo(() => new Map(bids.map(b => [b.id, b])), [bids]);
 
+  // Work sections live in their own table now, assigned and tracked in the
+  // Work Sections module. Projects reads them; it no longer owns them.
+  const { data: allSections = [] } = useQuery({
+    queryKey: ["work_sections"],
+    queryFn: () => base44.entities.WorkSection.list()
+  });
+  const sectionsByProject = React.useMemo(() => {
+    const map = new Map();
+    for (const s of allSections) {
+      if (!map.has(s.project_id)) map.set(s.project_id, []);
+      map.get(s.project_id).push(s);
+    }
+    return map;
+  }, [allSections]);
+  const sectionsFor = React.useCallback(
+    (projectId) => sectionsByProject.get(projectId) || [],
+    [sectionsByProject]
+  );
+
   const createMut = useMutation({
     mutationFn: d => base44.entities.Project.create(d),
     meta: { successMessage: "Project created" },
@@ -103,7 +121,7 @@ export default function Projects() {
       project_value: p.project_value ?? "", fee_agreed: p.fee_agreed ?? "",
       fee_invoiced: p.fee_invoiced ?? "", cost_to_date: p.cost_to_date ?? "",
       budgeted_hours: p.budgeted_hours ?? "",
-      actual_hours: p.actual_hours ?? "", work_sections: p.work_sections || []
+      actual_hours: p.actual_hours ?? "",
     });
     setFormTab("details");
     setDialogOpen(true);
@@ -118,7 +136,7 @@ export default function Projects() {
       fee_invoiced: form.fee_invoiced !== "" ? Number(form.fee_invoiced) : undefined,
       cost_to_date: form.cost_to_date !== "" ? Number(form.cost_to_date) : undefined,
       // Derived from the stage ladder + work sections — never entered by hand.
-      progress_percent: projectProgress(form.work_sections, form.riba_stage),
+      progress_percent: projectProgress(sectionsFor(editing?.id), form.riba_stage),
       budgeted_hours: form.budgeted_hours !== "" ? Number(form.budgeted_hours) : undefined,
       actual_hours: form.actual_hours !== "" ? Number(form.actual_hours) : undefined,
     };
@@ -133,9 +151,9 @@ export default function Projects() {
   // Stage gating in the edit form is measured against the SAVED stage, so that
   // picking a value in the dropdown doesn't shift its own baseline. Creating a
   // project is exempt — you must be able to enter one that's already underway.
-  const formProgress = projectProgress(form.work_sections, form.riba_stage);
+  const formProgress = projectProgress(sectionsFor(editing?.id), form.riba_stage);
   const formStageOptions = editing
-    ? stageOptions({ ...form, riba_stage: editing.riba_stage })
+    ? stageOptions({ ...form, work_sections: sectionsFor(editing.id), riba_stage: editing.riba_stage })
     : RIBA_STAGES.map(stage => ({ stage, disabled: false, reason: "" }));
 
   const filtered = projects.filter(p => {
@@ -221,7 +239,7 @@ export default function Projects() {
                       <span className="text-xs text-muted-foreground shrink-0">
                         {project.progress_percent != null
                           ? `${project.progress_percent}%`
-                          : (project.work_sections?.length ? "0%" : "— no sections")}
+                          : (sectionsFor(project.id).length ? "0%" : "— no sections")}
                       </span>
                     </div>
                     {project.fee_agreed && (
@@ -264,14 +282,14 @@ export default function Projects() {
                         A stage with unfinished sections locks the ones after it.
                       </p>
                       <StageStepper
-                        project={project}
+                        project={{ ...project, work_sections: sectionsFor(project.id) }}
                         readOnly={!canEdit}
                         onSelect={(stage) => {
                           updateMut.mutate({
                             id: project.id,
                             data: {
                               riba_stage: stage,
-                              progress_percent: projectProgress(project.work_sections, stage),
+                              progress_percent: projectProgress(sectionsFor(project.id), stage),
                             },
                             toastMessage: `Moved to ${stageLabel(stage)}`,
                           });
@@ -283,23 +301,15 @@ export default function Projects() {
                       <DateComparison project={project} />
                     </TabsContent>
 
-                    <TabsContent value="sections" className="mt-3">
+                    <TabsContent value="sections" className="mt-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Work is assigned and updated in the Work Sections module; this is a read-only view.
+                      </p>
                       <WorkSectionsTracker
-                        sections={project.work_sections || []}
+                        sections={sectionsFor(project.id)}
                         defaultStage={project.riba_stage}
-                        onChange={(updated) => {
-                          // Progress is derived from the sections, so keep the
-                          // stored percentage in step on every edit.
-                          updateMut.mutate({
-                            id: project.id,
-                            data: {
-                              work_sections: updated,
-                              progress_percent: projectProgress(updated, project.riba_stage),
-                            },
-                            toastMessage: "Work sections saved",
-                          });
-                        }}
-                        readOnly={!canEdit}
+                        onChange={() => {}}
+                        readOnly
                       />
                     </TabsContent>
 
@@ -447,8 +457,9 @@ export default function Projects() {
 
               <TabsContent value="sections" className="mt-0">
                 <WorkSectionsTracker
-                  sections={form.work_sections}
-                  onChange={updated => setForm(f => ({...f, work_sections: updated}))}
+                  sections={sectionsFor(editing?.id)}
+                  onChange={() => {}}
+                  readOnly
                 />
               </TabsContent>
             </Tabs>

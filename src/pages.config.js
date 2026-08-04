@@ -61,6 +61,7 @@ import ResourceMonitor from './pages/ResourceMonitor';
 import TimeManagement from './pages/TimeManagement';
 import WorkflowDashboard from './pages/WorkflowDashboard';
 import Projects from './pages/Projects';
+import WorkSections from './pages/WorkSections';
 import Profile from './pages/Profile';
 import Team from './pages/Team';
 import Settings from './pages/Settings';
@@ -82,6 +83,7 @@ export const PAGES = {
     "TimeManagement": TimeManagement,
     "WorkflowDashboard": WorkflowDashboard,
     "Projects": Projects,
+    "WorkSections": WorkSections,
     "Profile": Profile,
     "Team": Team,
     "Settings": Settings,

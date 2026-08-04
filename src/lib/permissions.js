@@ -38,7 +38,7 @@ export const normalizeRole = (role) =>
 export const NONE = 0, READ = 1, WRITE = 2, FULL = 3;
 
 const HR_PAGES = ["HRModule", "KPIPerformance", "TimeManagement", "ResourceAllocation", "ResourceMonitor"];
-const OPS_PAGES = ["BidManagement", "Projects", "DeliveryModule", "WorkflowDashboard"];
+const OPS_PAGES = ["BidManagement", "Projects", "DeliveryModule", "WorkflowDashboard", "WorkSections"];
 const FIN_PAGES = ["CostValueDashboard", "Finance"];
 
 const lvl = (pages, level) => Object.fromEntries(pages.map(p => [p, level]));
@@ -76,6 +76,9 @@ export function levelFor(role, page) {
   // Everyone can open the audit log; auditScope decides whose entries they see
   // (own actions, their reporting line, or company-wide for Super Admin).
   if (page === "AuditLog") return READ;
+  // Everyone sees the work assigned to them; the page itself scopes what is
+  // listed, and only managers (or Projects write access) can assign.
+  if (page === "WorkSections") return WRITE;
   // Shared document repository: everyone can view & upload; only Super Admin deletes.
   // Folder visibility within the page is further scoped by role (see foldersForRole).
   if (page === "DataManagement") return r === "super_admin" ? FULL : WRITE;

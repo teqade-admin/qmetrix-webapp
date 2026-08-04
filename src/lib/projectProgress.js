@@ -30,6 +30,20 @@ const clampPercent = (value) => {
   return Math.min(100, Math.max(0, n));
 };
 
+export const WORK_SECTION_STATUSES = ["todo", "in_progress", "blocked", "completed"];
+
+export const WORK_SECTION_STATUS_LABELS = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  blocked: "Blocked",
+  completed: "Completed",
+};
+
+// A section marked completed is 100% whatever the typed figure says, so the
+// status and the percentage can never contradict each other.
+const sectionPercent = (section) =>
+  section?.status === "completed" ? 100 : clampPercent(section?.progress_percent);
+
 const asList = (sections) => (Array.isArray(sections) ? sections.filter(Boolean) : []);
 
 /**
@@ -40,7 +54,7 @@ const asList = (sections) => (Array.isArray(sections) ? sections.filter(Boolean)
 export function sectionsProgress(sections) {
   const list = asList(sections);
   if (list.length === 0) return null;
-  const total = list.reduce((sum, s) => sum + clampPercent(s?.progress_percent), 0);
+  const total = list.reduce((sum, s) => sum + sectionPercent(s), 0);
   return Math.round(total / list.length);
 }
 
@@ -63,7 +77,7 @@ export const SECTION_REQUIRED_FIELDS = [
   { key: "title", label: "title" },
   { key: "start_date", label: "start date" },
   { key: "end_date", label: "end date" },
-  { key: "assigned_to", label: "assignee" },
+  { key: "assignee_name", label: "assignee" },
 ];
 
 // Project setup that must exist before the project advances at all.
