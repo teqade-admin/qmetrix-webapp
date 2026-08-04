@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
+import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText, CheckCircle2, Eye, Send } from "lucide-react";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 import PageHeader from "@/components/shared/PageHeader";
@@ -21,6 +21,7 @@ import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
 import { nextInvoiceNumber } from "@/lib/invoiceNumber";
+import { effectiveStatus, canEditInvoice, nextTransition, isOutstanding } from "@/lib/invoiceLifecycle";
 import { toast } from "@/components/ui/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -62,9 +63,11 @@ export default function Finance() {
 
   const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const outstanding = invoices.filter(i => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+  const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-  const overdue = invoices.filter(i => i.status === "overdue");
+  const overdue = invoices.filter(i => effectiveStatus(i) === "overdue");
+  const invoiceLocked = !canEditInvoice(invForm);
+  const invoiceStep = editingInvoice ? nextTransition(invForm) : null;
   const clientOptions = Array.from(new Set([
     ...projects.map(p => p.client_name).filter(Boolean),
     ...invoices.map(i => i.client_name).filter(Boolean),
@@ -78,13 +81,52 @@ export default function Finance() {
     setInvForm({ ...defaultInvoice, invoice_number: nextInvoiceNumber(invoices) });
     setInvoiceDialog(true);
   };
+  const invoiceValues = () => ({
+    ...invForm,
+    amount: Number(invForm.amount) || 0,
+    tax_amount: Number(invForm.tax_amount) || 0,
+    total_amount: Number(invForm.total_amount) || Number(invForm.amount) || 0,
+    billing_hours: invForm.billing_hours ? Number(invForm.billing_hours) : undefined,
+  });
+
+  // The number is the client's reference for the payment, so no two invoices
+  // may share one. It can only be typed while the invoice is a draft, which
+  // makes this the single place a duplicate could get in.
+  const submitInvoice = e => {
+    e.preventDefault();
+    const number = (invForm.invoice_number || "").trim();
+    const clash = invoices.some(i =>
+      i.id !== editingInvoice?.id &&
+      (i.invoice_number || "").trim().toLowerCase() === number.toLowerCase()
+    );
+    if (clash) {
+      toast({
+        variant: "destructive",
+        title: `Invoice ${number} already exists`,
+        description: "Give this invoice a number that is not already in use.",
+      });
+      return;
+    }
+    const d = { ...invoiceValues(), invoice_number: number };
+    editingInvoice ? invUpdate.mutate({ id: editingInvoice.id, data: d }) : invCreate.mutate(d);
+  };
+
+  const advanceInvoice = () => {
+    if (!invoiceStep || !editingInvoice) return;
+    invUpdate.mutate({
+      id: editingInvoice.id,
+      data: { ...invoiceValues(), status: invoiceStep.to },
+      toastMessage: `Invoice ${invoiceStep.to === "sent" ? "marked as sent" : "marked as paid"}`,
+    });
+  };
+
   const openEditInvoice = inv => { setEditingInvoice(inv); setInvForm({ ...defaultInvoice, ...inv, amount: inv.amount || "", tax_amount: inv.tax_amount || "", total_amount: inv.total_amount || "", billing_hours: inv.billing_hours || "" }); setInvoiceDialog(true); };
   const openNewExpense = () => { setEditingExpense(null); setExpForm(defaultExpense); setExpenseDialog(true); };
   const openEditExpense = exp => { setEditingExpense(exp); setExpForm({ ...defaultExpense, ...exp, amount: exp.amount || "" }); setExpenseDialog(true); };
 
   const filteredInvoices = invoices.filter(i => {
     const ms = (i.invoice_number || "").toLowerCase().includes(search.toLowerCase()) || (i.client_name || "").toLowerCase().includes(search.toLowerCase());
-    const mst = statusFilter === "all" || i.status === statusFilter;
+    const mst = statusFilter === "all" || effectiveStatus(i) === statusFilter;
     return ms && mst;
   });
 
@@ -131,7 +173,7 @@ export default function Finance() {
     doc.setFont("helvetica", "normal");
     doc.text(`Issue Date: ${invoice.issue_date ? format(new Date(invoice.issue_date), "dd MMM yyyy") : "-"}`, pageWidth - 210, 180);
     doc.text(`Due Date: ${invoice.due_date ? format(new Date(invoice.due_date), "dd MMM yyyy") : "-"}`, pageWidth - 210, 198);
-    doc.text(`Status: ${(invoice.status || "draft").toUpperCase()}`, pageWidth - 210, 216);
+    doc.text(`Status: ${effectiveStatus(invoice).toUpperCase()}`, pageWidth - 210, 216);
 
     const tableTop = 260;
     doc.setFillColor(243, 244, 246);
@@ -223,7 +265,7 @@ export default function Finance() {
           </TabsList>
           <div className="flex items-center gap-2">
             {tab === "invoices" && (
-              <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{["draft","sent","paid","overdue","cancelled"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{["draft","sent","overdue","paid","cancelled"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
             )}
             {canEdit && (
               <Button size="sm" onClick={tab === "invoices" ? openNewInvoice : openNewExpense}>
@@ -257,11 +299,11 @@ export default function Finance() {
                         <td className="p-3 text-right font-semibold">{formatMoney(inv.total_amount || inv.amount || 0, currency)}</td>
                         <td className="p-3 text-xs">{inv.issue_date ? format(new Date(inv.issue_date), "dd MMM yy") : "—"}</td>
                         <td className="p-3 text-xs">{inv.due_date ? format(new Date(inv.due_date), "dd MMM yy") : "—"}</td>
-                        <td className="p-3"><StatusBadge status={inv.status} /></td>
+                        <td className="p-3"><StatusBadge status={effectiveStatus(inv)} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadInvoicePdf(inv)} title="Download PDF"><FileText className="h-3.5 w-3.5" /></Button>
-                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" title={canEditInvoice(inv) ? "Edit" : "View / update status"} onClick={() => openEditInvoice(inv)}>{canEditInvoice(inv) ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</Button>}
                             {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "invoice", id: inv.id })}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>
                         </td>
@@ -321,13 +363,39 @@ export default function Finance() {
       {/* Invoice Dialog */}
       <Dialog open={invoiceDialog} onOpenChange={setInvoiceDialog}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingInvoice ? "Edit Invoice" : "New Invoice"}</DialogTitle></DialogHeader>
-          <form onSubmit={e => { e.preventDefault(); const d = { ...invForm, amount: Number(invForm.amount)||0, tax_amount: Number(invForm.tax_amount)||0, total_amount: Number(invForm.total_amount)||Number(invForm.amount)||0, billing_hours: invForm.billing_hours ? Number(invForm.billing_hours) : undefined }; editingInvoice ? invUpdate.mutate({ id: editingInvoice.id, data: d }) : invCreate.mutate(d); }} className="space-y-4">
+          <DialogHeader><DialogTitle>{!editingInvoice ? "New Invoice" : invoiceLocked ? `Invoice ${invForm.invoice_number}` : "Edit Invoice"}</DialogTitle></DialogHeader>
+          <form onSubmit={submitInvoice} className="space-y-4">
+            <fieldset disabled={invoiceLocked} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Invoice # *</Label><Input value={invForm.invoice_number} readOnly className="bg-muted cursor-not-allowed" required /></div>
+              <div className="space-y-1.5">
+                <Label>Invoice # *</Label>
+                <Input
+                  value={invForm.invoice_number}
+                  onChange={e => setInvForm(f => ({ ...f, invoice_number: e.target.value }))}
+                  readOnly={!canEditInvoice(invForm)}
+                  className={canEditInvoice(invForm) ? "" : "bg-muted cursor-not-allowed"}
+                  required
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {canEditInvoice(invForm)
+                    ? "Generated for you — editable while this is a draft."
+                    : "Fixed once the invoice has been sent."}
+                </p>
+              </div>
               <div className="space-y-1.5"><Label>Client *</Label><Select value={invForm.client_name} onValueChange={v => setInvForm(f => ({...f, client_name: v, project_name: projects.find(p => p.name === f.project_name)?.client_name === v ? f.project_name : ""}))}><SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger><SelectContent>{clientOptions.map(client => <SelectItem key={client} value={client}>{client}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>Project</Label><Select value={invForm.project_name} onValueChange={v => { const proj = projects.find(p => p.name === v); setInvForm(f => ({...f, project_name: v, client_name: proj?.client_name || f.client_name})); }}><SelectTrigger><SelectValue placeholder={invForm.client_name ? "Select" : "Select client first"} /></SelectTrigger><SelectContent>{filteredInvoiceProjects.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-1.5"><Label>Status</Label><Select value={invForm.status} onValueChange={v => setInvForm(f => ({...f, status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["draft","sent","paid","overdue","cancelled"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <div className="flex items-center gap-2 h-9">
+                  <StatusBadge status={effectiveStatus(invForm)} />
+                  {effectiveStatus(invForm) === "overdue" && (
+                    <span className="text-[11px] text-muted-foreground">past its due date</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Draft → Sent → Paid. Overdue is set by the due date.
+                </p>
+              </div>
               <div className="space-y-1.5"><Label>Amount ({currency.symbol}) *</Label><Input type="number" value={invForm.amount} onChange={e => setInvForm(f => ({...f, amount: e.target.value}))} required /></div>
               <div className="space-y-1.5"><Label>Tax ({currency.symbol})</Label><Input type="number" value={invForm.tax_amount} onChange={e => setInvForm(f => ({...f, tax_amount: e.target.value}))} /></div>
               <div className="space-y-1.5"><Label>Total ({currency.symbol})</Label><Input type="number" value={invForm.total_amount} onChange={e => setInvForm(f => ({...f, total_amount: e.target.value}))} /></div>
@@ -336,7 +404,22 @@ export default function Finance() {
               <div className="space-y-1.5"><Label>Due Date</Label><Input type="date" value={invForm.due_date} onChange={e => setInvForm(f => ({...f, due_date: e.target.value}))} /></div>
             </div>
             <div className="space-y-1.5"><Label>Description</Label><Textarea value={invForm.description} onChange={e => setInvForm(f => ({...f, description: e.target.value}))} rows={2} /></div>
-            <DialogFooter><Button type="button" variant="outline" onClick={() => setInvoiceDialog(false)}>Cancel</Button><Button type="submit">{editingInvoice ? "Update" : "Create"}</Button></DialogFooter>
+            </fieldset>
+            {invoiceLocked && (
+              <p className="text-xs text-muted-foreground">
+                This invoice has been issued, so its details are fixed. Delete it and raise a new one if it is wrong.
+              </p>
+            )}
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setInvoiceDialog(false)}>{invoiceLocked ? "Close" : "Cancel"}</Button>
+              {!invoiceLocked && <Button type="submit" variant={invoiceStep ? "outline" : "default"}>{editingInvoice ? "Update" : "Create"}</Button>}
+              {invoiceStep && (
+                <Button type="button" onClick={advanceInvoice} disabled={invUpdate.isPending}>
+                  {invoiceStep.to === "sent" ? <Send className="h-3.5 w-3.5 mr-1.5" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />}
+                  {invoiceStep.label}
+                </Button>
+              )}
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

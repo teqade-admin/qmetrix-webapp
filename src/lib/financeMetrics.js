@@ -1,3 +1,5 @@
+import { isOutstanding } from "@/lib/invoiceLifecycle";
+
 /**
  * Company-level finance figures, defined once so every page reports the same
  * number. The Dashboard and Cost & Value previously each computed Gross Margin
@@ -25,7 +27,7 @@ export const totalPaid = (invoices) =>
   sum((invoices || []).filter((i) => i?.status === "paid"), invoiceValue);
 
 export const totalOutstanding = (invoices) =>
-  sum((invoices || []).filter((i) => ["sent", "overdue"].includes(i?.status)), invoiceValue);
+  sum((invoices || []).filter((i) => isOutstanding(i)), invoiceValue);
 
 /**
  * Gross margin on an earned-value basis: the value of work done, less what it

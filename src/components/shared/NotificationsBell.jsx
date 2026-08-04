@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Bell } from "lucide-react";
 import { canRead, canWrite } from "@/lib/permissions";
+import { isOverdue } from "@/lib/invoiceLifecycle";
 
 /**
  * What is waiting for you, derived from records already loaded elsewhere —
@@ -66,7 +67,7 @@ export default function NotificationsBell({ user, userRole }) {
     }).length : 0;
     if (mine) out.push({ page: "DeliveryModule", label: `${mine} deliverable${mine === 1 ? "" : "s"} awaiting your sign-off` });
 
-    const overdue = invoices.filter(i => i.status === "overdue").length;
+    const overdue = invoices.filter(i => isOverdue(i)).length;
     if (overdue) out.push({ page: "Finance", label: `${overdue} overdue invoice${overdue === 1 ? "" : "s"}` });
 
     return out;

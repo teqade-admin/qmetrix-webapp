@@ -16,6 +16,7 @@ import { canRead } from "@/lib/permissions";
 import { grossMargin } from "@/lib/financeMetrics";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { isOutstanding, isOverdue } from "@/lib/invoiceLifecycle";
 
 const COLORS = ["#1e3a5f", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#06b6d4", "#f97316"];
 
@@ -39,8 +40,8 @@ export default function Dashboard() {
   const pipelineValue = bids.filter(b => ["submitted", "in_progress"].includes(b.status)).reduce((s, b) => s + (b.fee_proposal || 0), 0);
   const activeProjects = projects.filter(p => !["closed"].includes(p.status)).length;
   const totalRevenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const outstanding = invoices.filter(i => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const overdueInvoices = invoices.filter(i => i.status === "overdue");
+  const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+  const overdueInvoices = invoices.filter(i => isOverdue(i));
 
   // Resource utilization
   const activeEmployeesList = employees.filter(e => e.status === "active");
