@@ -11,9 +11,9 @@ at https://teqade-admin.github.io/qmetrix-webapp/
 
 | Status | Count |
 |---|---|
-| ✅ Done | 31 |
+| ✅ Done | 30 |
 | 🟡 Partly done | 1 |
-| ⏸️ Not doing (agreed) | 1 |
+| ⏸️ Not doing (agreed) | 2 |
 | ⬜ Not started | 4 |
 
 Of the four not started, three are new modules that need scoping with you
@@ -100,7 +100,7 @@ Of the four not started, three are new modules that need scoping with you
 | Gross Margin reported as two contradictory numbers: −442.2% on Dashboard vs 99.1% in Cost & Value | ✅ | The two screens used the same revenue figure but different cost bases — one counted project costs, the other expense claims. Both now use a single definition, the value of work done less the cost of doing it, and report **47.7%**. |
 | Onboarding can fail to create a login account, leaving a new hire unable to sign in | ✅ | The message shown was a generic wrapper and the real reason was being discarded. HR now sees what actually failed, and each Onboarding card has a **Create login** button to retry. |
 | Notification bell non-functional on every role | ✅ | The bell now shows what is awaiting you — timesheets and leave to approve, deliverables where you own the next sign-off, and overdue invoices — each linking to the relevant page. |
-| Invoice # field cannot be manually overridden | ✅ | The number is now editable — but only while the invoice is a draft, and it is checked against existing invoices so two can never share one. Once the invoice is sent it becomes fixed, since it is by then the client's reference for the payment. This came with a wider change to how an invoice progresses: status was a free choice of five values, so an invoice could be marked paid without ever being sent. It now follows **Draft → Sent → Paid**, one step at a time, with a single button offering the next step. **Overdue is automatic** — derived from the due date, so an invoice becomes overdue on the day it falls due and stops being overdue as soon as it is paid. Editing of any field is likewise a draft-only privilege; a sent invoice opens as a record to read, not a form to change. |
+| Invoice # field cannot be manually overridden | ⏸️ | **Agreed not to change — the number stays system-assigned.** It is the client's reference for a payment, so it is set by the system and cannot be typed over. What did change is when it appears: the field no longer shows a number before the invoice exists, since cancelling the dialog would have thrown that number away and left a gap. It is now assigned at the moment you create the invoice. This came alongside a wider change to how an invoice progresses. Status was a free choice of five values, so an invoice could be marked paid without ever being sent. It now follows **Draft → Sent → Paid**, one step at a time, with a single button offering the next step. **Overdue is automatic** — derived from the due date, so an invoice becomes overdue on the day it falls due and stops being overdue as soon as it is paid. Editing is a draft-only privilege; once sent, an invoice opens as a record to read, not a form to change. The same treatment was applied to expense claims: **Pending → Approved → Paid**, Reject available only while pending, Approve and Reject buttons in place of the status dropdown, and each decision now records who made it and when. Rejected claims also stopped counting as company cost — **AED 2,200 of the AED 9,900 expense total** was money the company had declined to pay. |
 | Expense approvals re-sort the list, so a second click can action the wrong expense | ✅ | Two causes addressed. The approve control was a receipt icon that read as "view document", so a click meant to inspect silently approved the expense — it is now a tick. Separately, list ordering had no tiebreaker, so rows could come back in a different order after a refresh; every list now orders deterministically. |
 | Many actions give no confirmation | ✅ | Every action now confirms — green for success, red for failure — naming what happened ("Timesheet approved", "Expense approved"). Confirmations clear on their own, and the close button works. |
 | Start Date and other wizard fields not persisted | ✅ | We audited all 21 fields the onboarding wizard collects, and every one saves correctly. Three genuine faults were found and fixed in the process: a stored value of 0 displayed as blank, and clearing a rate, salary or manager silently kept the previous value. |
@@ -120,7 +120,8 @@ the consolidation of financial subtotals.
 **Awaiting your decision** — whether HR User should be prevented from *seeing*
 salary as well as editing it.
 
-**Agreed not to do** — restricting cross-department admin role assignment.
+**Agreed not to do** — restricting cross-department admin role assignment, and
+making the invoice number manually overridable.
 
 ---
 
