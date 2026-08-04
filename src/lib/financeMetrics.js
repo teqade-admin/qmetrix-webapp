@@ -1,4 +1,5 @@
 import { isOutstanding } from "@/lib/invoiceLifecycle";
+import { costBearingExpenses } from "@/lib/expenseLifecycle";
 
 /**
  * Company-level finance figures, defined once so every page reports the same
@@ -16,9 +17,14 @@ const invoiceValue = (invoice) => invoice?.total_amount || invoice?.amount || 0;
 export const earnedValue = (projects) =>
   sum(projects, (p) => (p?.fee_agreed || 0) * ((p?.progress_percent || 0) / 100));
 
-/** Cost incurred earning it: delivery cost to date plus expense claims. */
+/**
+ * Cost incurred earning it: delivery cost to date plus expense claims.
+ *
+ * Rejected claims are left out — that is money the company decided not to pay,
+ * and counting it would overstate cost and understate margin.
+ */
 export const totalCost = (projects, expenses) =>
-  sum(projects, (p) => p?.cost_to_date) + sum(expenses, (e) => e?.amount);
+  sum(projects, (p) => p?.cost_to_date) + sum(costBearingExpenses(expenses), (e) => e?.amount);
 
 export const totalInvoiced = (invoices) =>
   sum((invoices || []).filter((i) => i?.status !== "cancelled"), invoiceValue);

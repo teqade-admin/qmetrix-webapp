@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { grossMargin } from "@/lib/financeMetrics";
 import { isOutstanding } from "@/lib/invoiceLifecycle";
+import { costBearingExpenses } from "@/lib/expenseLifecycle";
 
 export default function CostValueDashboard() {
   const { currency } = useCurrency();
@@ -24,7 +25,7 @@ export default function CostValueDashboard() {
   const totalFeeAgreed = projects.reduce((s, p) => s + (p.fee_agreed || 0), 0);
   const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const totalCosts = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const totalCosts = costBearingExpenses(expenses).reduce((s, e) => s + (e.amount || 0), 0);
   const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   // Shared definition — see lib/financeMetrics. Must match the Dashboard.
   const margin = grossMargin(projects, expenses);
