@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText, CheckCircle2, Eye, Send } from "lucide-react";
+import { DollarSign, Receipt, Plus, Pencil, Trash2, Search, AlertTriangle, FileText, CheckCircle2, XCircle, Eye, Send } from "lucide-react";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import CurrencySelector from "@/components/shared/CurrencySelector";
 import PageHeader from "@/components/shared/PageHeader";
@@ -22,6 +22,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
 import { nextInvoiceNumber } from "@/lib/invoiceNumber";
 import { effectiveStatus, canEditInvoice, nextTransition, isOutstanding } from "@/lib/invoiceLifecycle";
+import { canEditExpense, expenseTransitions, costBearingExpenses, expenseStatus } from "@/lib/expenseLifecycle";
 import { toast } from "@/components/ui/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -34,7 +35,7 @@ const PROVIDER_NAME = "Qmetrix Consultancy";
 
 export default function Finance() {
   const { currency } = useCurrency();
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const canEdit = canWrite(userRole, "Finance");
   const canRemove = canDelete(userRole, "Finance");
   const [tab, setTab] = useState("invoices");
@@ -64,10 +65,12 @@ export default function Finance() {
   const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
   const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const totalExpenses = costBearingExpenses(expenses).reduce((s, e) => s + (e.amount || 0), 0);
   const overdue = invoices.filter(i => effectiveStatus(i) === "overdue");
   const invoiceLocked = !canEditInvoice(invForm);
   const invoiceStep = editingInvoice ? nextTransition(invForm) : null;
+  const expenseLocked = !canEditExpense(expForm);
+  const expenseSteps = editingExpense ? expenseTransitions(expForm) : [];
   const clientOptions = Array.from(new Set([
     ...projects.map(p => p.client_name).filter(Boolean),
     ...invoices.map(i => i.client_name).filter(Boolean),
@@ -78,7 +81,7 @@ export default function Finance() {
 
   const openNewInvoice = () => {
     setEditingInvoice(null);
-    setInvForm({ ...defaultInvoice, invoice_number: nextInvoiceNumber(invoices) });
+    setInvForm({ ...defaultInvoice });
     setInvoiceDialog(true);
   };
   const invoiceValues = () => ({
@@ -89,26 +92,35 @@ export default function Finance() {
     billing_hours: invForm.billing_hours ? Number(invForm.billing_hours) : undefined,
   });
 
-  // The number is the client's reference for the payment, so no two invoices
-  // may share one. It can only be typed while the invoice is a draft, which
-  // makes this the single place a duplicate could get in.
+  // The number is the client's reference for the payment, so it is assigned by
+  // the system and never typed. It is worked out at the moment of creation
+  // rather than when the dialog opens, so a cancelled dialog does not consume a
+  // number and two people drafting at once do not both see the same one.
   const submitInvoice = e => {
     e.preventDefault();
-    const number = (invForm.invoice_number || "").trim();
-    const clash = invoices.some(i =>
-      i.id !== editingInvoice?.id &&
-      (i.invoice_number || "").trim().toLowerCase() === number.toLowerCase()
-    );
-    if (clash) {
-      toast({
-        variant: "destructive",
-        title: `Invoice ${number} already exists`,
-        description: "Give this invoice a number that is not already in use.",
-      });
+    if (editingInvoice) {
+      invUpdate.mutate({ id: editingInvoice.id, data: invoiceValues() });
       return;
     }
-    const d = { ...invoiceValues(), invoice_number: number };
-    editingInvoice ? invUpdate.mutate({ id: editingInvoice.id, data: d }) : invCreate.mutate(d);
+    invCreate.mutate({ ...invoiceValues(), invoice_number: nextInvoiceNumber(invoices) });
+  };
+
+  const approverName = user?.user_metadata?.full_name || user?.email || "Unknown";
+
+  const advanceExpense = step => {
+    if (!editingExpense) return;
+    const decided = step.to === "approved" || step.to === "rejected";
+    expUpdate.mutate({
+      id: editingExpense.id,
+      data: {
+        // Approving means approving the claim as it now reads, so any unsaved
+        // edits go with the decision rather than being quietly discarded.
+        ...(canEditExpense(expForm) ? { ...expForm, amount: Number(expForm.amount) || 0 } : {}),
+        status: step.to,
+        ...(decided ? { approved_by: approverName, approved_at: new Date().toISOString() } : {}),
+      },
+      toastMessage: `Expense ${step.to}`,
+    });
   };
 
   const advanceInvoice = () => {
@@ -341,11 +353,11 @@ export default function Finance() {
                         <td className="p-3 text-right font-semibold">{formatMoney(exp.amount || 0, currency)}</td>
                         <td className="p-3 text-xs">{exp.date ? format(new Date(exp.date), "dd MMM yy") : "—"}</td>
                         <td className="p-3 text-xs">{exp.submitted_by || "—"}</td>
-                        <td className="p-3"><StatusBadge status={exp.status} /></td>
+                        <td className="p-3"><StatusBadge status={expenseStatus(exp)} /></td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            {canEdit && exp.status === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved" }, toastMessage: "Expense approved" })} title="Approve expense"><CheckCircle2 className="h-3.5 w-3.5" /></Button>}
-                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditExpense(exp)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && expenseStatus(exp) === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" onClick={() => expUpdate.mutate({ id: exp.id, data: { status: "approved", approved_by: approverName, approved_at: new Date().toISOString() }, toastMessage: "Expense approved" })} title="Approve expense"><CheckCircle2 className="h-3.5 w-3.5" /></Button>}
+                            {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" title={canEditExpense(exp) ? "Edit" : "View / update status"} onClick={() => openEditExpense(exp)}>{canEditExpense(exp) ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</Button>}
                             {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget({ type: "expense", id: exp.id })}><Trash2 className="h-3.5 w-3.5" /></Button>}
                           </div>
                         </td>
@@ -368,18 +380,17 @@ export default function Finance() {
             <fieldset disabled={invoiceLocked} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Invoice # *</Label>
+                <Label>Invoice #</Label>
                 <Input
                   value={invForm.invoice_number}
-                  onChange={e => setInvForm(f => ({ ...f, invoice_number: e.target.value }))}
-                  readOnly={!canEditInvoice(invForm)}
-                  className={canEditInvoice(invForm) ? "" : "bg-muted cursor-not-allowed"}
-                  required
+                  placeholder={editingInvoice ? "" : "Assigned on creation"}
+                  readOnly
+                  className="bg-muted cursor-not-allowed"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  {canEditInvoice(invForm)
-                    ? "Generated for you — editable while this is a draft."
-                    : "Fixed once the invoice has been sent."}
+                  {editingInvoice
+                    ? "Set by the system and cannot be changed."
+                    : "Given to the invoice once you create it."}
                 </p>
               </div>
               <div className="space-y-1.5"><Label>Client *</Label><Select value={invForm.client_name} onValueChange={v => setInvForm(f => ({...f, client_name: v, project_name: projects.find(p => p.name === f.project_name)?.client_name === v ? f.project_name : ""}))}><SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger><SelectContent>{clientOptions.map(client => <SelectItem key={client} value={client}>{client}</SelectItem>)}</SelectContent></Select></div>
@@ -410,7 +421,7 @@ export default function Finance() {
                 This invoice has been issued, so its details are fixed. Delete it and raise a new one if it is wrong.
               </p>
             )}
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 flex-wrap">
               <Button type="button" variant="outline" onClick={() => setInvoiceDialog(false)}>{invoiceLocked ? "Close" : "Cancel"}</Button>
               {!invoiceLocked && <Button type="submit" variant={invoiceStep ? "outline" : "default"}>{editingInvoice ? "Update" : "Create"}</Button>}
               {invoiceStep && (
@@ -427,8 +438,9 @@ export default function Finance() {
       {/* Expense Dialog */}
       <Dialog open={expenseDialog} onOpenChange={setExpenseDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editingExpense ? "Edit Expense" : "New Expense"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{!editingExpense ? "New Expense" : expenseLocked ? "Expense Claim" : "Edit Expense"}</DialogTitle></DialogHeader>
           <form onSubmit={e => { e.preventDefault(); const d = { ...expForm, amount: Number(expForm.amount)||0 }; editingExpense ? expUpdate.mutate({ id: editingExpense.id, data: d }) : expCreate.mutate(d); }} className="space-y-4">
+            <fieldset disabled={expenseLocked} className="space-y-4">
             <div className="space-y-1.5"><Label>Description *</Label><Input value={expForm.description} onChange={e => setExpForm(f => ({...f, description: e.target.value}))} required /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Category *</Label><Select value={expForm.category} onValueChange={v => setExpForm(f => ({...f, category: v}))}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{["travel","accommodation","materials","software","subcontractor","office","training","other"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
@@ -436,9 +448,30 @@ export default function Finance() {
               <div className="space-y-1.5"><Label>Amount ({currency.symbol}) *</Label><Input type="number" value={expForm.amount} onChange={e => setExpForm(f => ({...f, amount: e.target.value}))} required /></div>
               <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={expForm.date} onChange={e => setExpForm(f => ({...f, date: e.target.value}))} /></div>
               <div className="space-y-1.5"><Label>Submitted By</Label><Input value={expForm.submitted_by} onChange={e => setExpForm(f => ({...f, submitted_by: e.target.value}))} /></div>
-              <div className="space-y-1.5"><Label>Status</Label><Select value={expForm.status} onValueChange={v => setExpForm(f => ({...f, status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["pending","approved","rejected","paid"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <div className="flex items-center h-9"><StatusBadge status={expenseStatus(expForm)} /></div>
+                <p className="text-[11px] text-muted-foreground">Pending → Approved → Paid.</p>
+              </div>
             </div>
-            <DialogFooter><Button type="button" variant="outline" onClick={() => setExpenseDialog(false)}>Cancel</Button><Button type="submit">{editingExpense ? "Update" : "Create"}</Button></DialogFooter>
+            </fieldset>
+            {expenseLocked && (
+              <p className="text-xs text-muted-foreground">
+                {expForm.approved_by
+                  ? `Decided by ${expForm.approved_by}${expForm.approved_at ? ` on ${format(new Date(expForm.approved_at), "dd MMM yyyy")}` : ""}, so the claim is fixed.`
+                  : "This claim has been decided, so its details are fixed."}
+              </p>
+            )}
+            <DialogFooter className="gap-2 flex-wrap">
+              <Button type="button" variant="outline" onClick={() => setExpenseDialog(false)}>{expenseLocked ? "Close" : "Cancel"}</Button>
+              {!expenseLocked && <Button type="submit" variant={expenseSteps.length ? "outline" : "default"}>{editingExpense ? "Update" : "Create"}</Button>}
+              {expenseSteps.map(step => (
+                <Button key={step.to} type="button" variant={step.destructive ? "destructive" : "default"} onClick={() => advanceExpense(step)} disabled={expUpdate.isPending}>
+                  {step.to === "rejected" ? <XCircle className="h-3.5 w-3.5 mr-1.5" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />}
+                  {step.label}
+                </Button>
+              ))}
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
