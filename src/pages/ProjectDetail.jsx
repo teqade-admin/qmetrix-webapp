@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
-import { projectPermissions } from "@/lib/projectAccess";
+import { projectPermissions, visibleProjects } from "@/lib/projectAccess";
+import AccessDenied from "@/lib/AccessDenied";
 import { createPageUrl } from "@/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,11 @@ export default function ProjectDetail() {
       </div>
     );
   }
+
+  // The route guard only asks whether the role may open Projects at all. Being
+  // allowed to see THIS project is a separate question, and a URL is guessable.
+  const mayView = visibleProjects([project], { role: userRole, employee: me, sections: allSections }).length > 0;
+  if (!mayView) return <AccessDenied />;
 
   const { canEdit, canDelete: canRemove, isOwner, isManager } = projectPermissions(project, { role: userRole, employee: me });
   const sectionIds = new Set(sections.map(s => s.id));

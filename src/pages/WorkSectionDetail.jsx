@@ -17,6 +17,8 @@ import { ArrowLeft, MessageSquare, History, Send, Pencil } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { getSubordinates } from "@/lib/orgHierarchy";
+import { visibleWorkSections } from "@/lib/projectAccess";
+import AccessDenied from "@/lib/AccessDenied";
 import { describeChanges } from "@/lib/auditScope";
 import {
   RIBA_STAGES, stageLabel, projectProgress,
@@ -128,6 +130,11 @@ export default function WorkSectionDetail() {
       </div>
     );
   }
+
+  // You may open the Work Sections page; whether you may open THIS section is
+  // decided by the same reporting-line rule the list uses.
+  const mayView = visibleWorkSections([section], { role: userRole, employee: me, employees }).length > 0;
+  if (!mayView) return <AccessDenied />;
 
   const value = (key) => (draft ? draft[key] : section[key]) ?? "";
   const setValue = (key, v) => setDraft(d => ({ ...(d ?? section), [key]: v }));
