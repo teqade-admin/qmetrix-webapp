@@ -19,6 +19,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import StatCard from "@/components/shared/StatCard";
 import { getInvalidManagerIds } from "@/lib/orgHierarchy";
+import { projectsForEmployee } from "@/lib/projectAccess";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { useAuth } from "@/lib/AuthContext";
 import { assignableRoles, ROLE_LABELS, canWrite, canDelete } from "@/lib/permissions";
@@ -59,18 +60,19 @@ const defaultForm = {
   full_name: "", email: "", phone: "", department: "", role: "", app_role: "qs", job_title: "",
   hourly_rate: "", cost_rate: "", salary: "", status: "active", start_date: "",
   onboarding_status: "not_started", kpi_score: "", performance_rating: "", manager_id: "", manager_name: "",
-  contracts: [], documents: [], allocated_projects: [], notes: "", skills: []
+  contracts: [], documents: [], notes: "", skills: []
 };
 
 const CONTRACTS_PER_PAGE = 5;
 
-const deriveOnboardingChecklist = (e = {}) => ({
+const deriveOnboardingChecklist = (e = {}, allocatedCount = 0) => ({
   document_collection: (e.documents || []).length > 0,
   contract_upload: (e.contracts || []).length > 0,
   role_assignment: !!e.role,
   cost_rate: e.cost_rate !== "" && e.cost_rate != null,
   system_role: !!e.app_role,
-  project_allocation: (e.allocated_projects || []).length > 0,
+  // Allocation is whether they have work assigned, not a separately kept list.
+  project_allocation: allocatedCount > 0,
 });
 
 const emptyToNull = (value) => {
@@ -117,6 +119,16 @@ export default function HRModule() {
     queryKey: ["projects"],
     queryFn: () => base44.entities.Project.list(),
   });
+  const { data: workSections = [] } = useQuery({
+    queryKey: ["work_sections"],
+    queryFn: () => base44.entities.WorkSection.list(),
+  });
+
+  // Allocation follows the work assigned, rather than a list kept by hand.
+  const allocatedFor = React.useCallback(
+    (employeeId) => projectsForEmployee(workSections, projects, employeeId),
+    [workSections, projects]
+  );
 
   const createMut = useMutation({
     mutationFn: async (data) => {
@@ -175,7 +187,7 @@ export default function HRModule() {
   const openNew = () => { setEditing(null); setForm(defaultForm); setFormTab("personal"); setDialogOpen(true); };
   // `?? ""` not `|| ""`: a stored 0 is a real value, and `||` blanked it in the
   // form, so reopening a record showed an empty rate or salary.
-  const openEdit = (e) => { setEditing(e); setForm({ ...defaultForm, ...e, hourly_rate: e.hourly_rate ?? "", cost_rate: e.cost_rate ?? "", salary: e.salary ?? "", kpi_score: e.kpi_score ?? "", contracts: e.contracts || [], documents: e.documents || [], allocated_projects: e.allocated_projects || [] }); setFormTab("personal"); setDialogOpen(true); };
+  const openEdit = (e) => { setEditing(e); setForm({ ...defaultForm, ...e, hourly_rate: e.hourly_rate ?? "", cost_rate: e.cost_rate ?? "", salary: e.salary ?? "", kpi_score: e.kpi_score ?? "", contracts: e.contracts || [], documents: e.documents || [] }); setFormTab("personal"); setDialogOpen(true); };
   const openDetail = (e) => { setSelectedEmp(e); setDetailTab("personal"); };
 
   // ── File uploads (contract + documents) → PRIVATE "employee-docs" bucket ──
@@ -233,11 +245,6 @@ export default function HRModule() {
       URL.revokeObjectURL(a.href);
     } catch (err) { setProvisionError(err.message || "Could not build zip."); }
   };
-  const toggleProject = (name) => setForm(f => {
-    const set = new Set(f.allocated_projects || []);
-    set.has(name) ? set.delete(name) : set.add(name);
-    return { ...f, allocated_projects: [...set] };
-  });
   const handleSave = (ev) => {
     ev.preventDefault();
     setProvisionMessage("");
@@ -261,7 +268,7 @@ export default function HRModule() {
       setProvisionError(`An employee with the email "${form.email.trim()}" already exists.`);
       return;
     }
-    const checklist = deriveOnboardingChecklist(form);
+    const checklist = deriveOnboardingChecklist(form, allocatedFor(editing?.id).length);
     const data = {
       ...form,
       phone: emptyToNull(form.phone),
@@ -283,7 +290,6 @@ export default function HRModule() {
         : null,
       contracts: form.contracts || [],
       documents: form.documents || [],
-      allocated_projects: form.allocated_projects || [],
       onboarding_checklist: checklist,
       // Onboarding completion is a milestone, not a live calculation. Deriving it
       // afresh on every save meant editing an unrelated field (a phone number, a
@@ -424,7 +430,7 @@ export default function HRModule() {
         <TabsContent value="onboarding" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {employees.filter(e => e.onboarding_status !== "completed").map(emp => {
-              const checklist = deriveOnboardingChecklist(emp);
+              const checklist = deriveOnboardingChecklist(emp, allocatedFor(emp.id).length);
               const requiredDone = REQUIRED_ONBOARDING_STEPS.filter(s => checklist[s.key]).length;
               const pct = Math.round((requiredDone / REQUIRED_ONBOARDING_STEPS.length) * 100);
               return (
@@ -531,9 +537,9 @@ export default function HRModule() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Project Allocation</p>
-                  {(selectedEmp.allocated_projects || []).length > 0
-                    ? <div className="flex flex-wrap gap-1.5">{selectedEmp.allocated_projects.map((p, i) => <Badge key={i} variant="outline" className="text-xs">{p}</Badge>)}</div>
-                    : <p className="text-sm text-muted-foreground">Not allocated to any project.</p>}
+                  {allocatedFor(selectedEmp.id).length > 0
+                    ? <div className="flex flex-wrap gap-1.5">{allocatedFor(selectedEmp.id).map(p => <Badge key={p.id} variant="outline" className="text-xs">{p.name}</Badge>)}</div>
+                    : <p className="text-sm text-muted-foreground">No work assigned yet.</p>}
                 </div>
               </TabsContent>
 
@@ -616,22 +622,10 @@ export default function HRModule() {
                   <div className="space-y-1.5"><Label>Status</Label><Select value={form.status} onValueChange={v => setForm(f => ({...f, status: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="on_leave">On Leave</SelectItem><SelectItem value="terminated">Terminated</SelectItem></SelectContent></Select></div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Project Allocation <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
-                  {projects.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No projects available to allocate.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {projects.map(p => {
-                        const on = (form.allocated_projects || []).includes(p.name);
-                        return (
-                          <button type="button" key={p.id} onClick={() => toggleProject(p.name)}
-                            className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${on ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
-                            {p.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <Label>Project Allocation <span className="text-xs text-muted-foreground font-normal">(from assigned work)</span></Label>
+                  <p className="text-xs text-muted-foreground">
+                    Set by assigning work sections to this person, so it stays in step on its own.
+                  </p>
                 </div>
               </TabsContent>
 

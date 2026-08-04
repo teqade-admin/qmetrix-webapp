@@ -89,3 +89,26 @@ export function visibleWorkSections(sections, { role, employee, employees = [] }
   const allowed = new Set([employee.id, ...getSubordinates(employees, employee.id).map((e) => e.id)]);
   return list.filter((s) => allowed.has(s.assignee_id));
 }
+
+/**
+ * The projects an employee is allocated to — derived from the work assigned to
+ * them, not stored separately.
+ *
+ * employees.allocated_projects held an array of project NAMES, which nothing
+ * kept in step: renaming a project silently broke it, and assigning work did
+ * not update it. work_sections already records assignee and project, so the
+ * allocation is a join and cannot drift.
+ *
+ * @returns {object[]} distinct projects, in name order.
+ */
+export function projectsForEmployee(sections, projects, employeeId) {
+  if (!employeeId) return [];
+  const ids = new Set(
+    (Array.isArray(sections) ? sections : [])
+      .filter((s) => s?.assignee_id === employeeId)
+      .map((s) => s.project_id)
+  );
+  return (Array.isArray(projects) ? projects : [])
+    .filter((p) => ids.has(p.id))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+}
