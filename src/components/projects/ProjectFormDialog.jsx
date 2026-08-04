@@ -202,7 +202,7 @@ export default function ProjectFormDialog({
               <div className="grid grid-cols-2 gap-4">
                 {[
                   ["Project Value", "project_value"], ["Fee Agreed", "fee_agreed"],
-                  ["Fee Invoiced", "fee_invoiced"], ["Cost to Date", "cost_to_date"],
+                  ["Cost to Date", "cost_to_date"],
                 ].map(([label, key]) => (
                   <div key={key} className="space-y-1.5">
                     <Label>{label} ({currency.symbol})</Label>

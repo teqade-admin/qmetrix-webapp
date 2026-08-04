@@ -21,7 +21,8 @@ import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
 import { nextInvoiceNumber } from "@/lib/invoiceNumber";
-import { effectiveStatus, canEditInvoice, nextTransition, isOutstanding } from "@/lib/invoiceLifecycle";
+import { effectiveStatus, canEditInvoice, nextTransition } from "@/lib/invoiceLifecycle";
+import { totalInvoiced as sumInvoiced, totalPaid as sumPaid, totalOutstanding } from "@/lib/financeMetrics";
 import { canEditExpense, expenseTransitions, costBearingExpenses, expenseStatus } from "@/lib/expenseLifecycle";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -62,9 +63,9 @@ export default function Finance() {
   const expUpdate = useMutation({ mutationFn: ({ id, data }) => base44.entities.Expense.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Expense updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setExpenseDialog(false); setEditingExpense(null); } });
   const expDelete = useMutation({ mutationFn: id => base44.entities.Expense.delete(id), meta: { successMessage: "Expense deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); setDeleteTarget(null); } });
 
-  const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+  const totalInvoiced = sumInvoiced(invoices);
+  const totalPaid = sumPaid(invoices);
+  const outstanding = totalOutstanding(invoices);
   const totalExpenses = costBearingExpenses(expenses).reduce((s, e) => s + (e.amount || 0), 0);
   const overdue = invoices.filter(i => effectiveStatus(i) === "overdue");
   const invoiceLocked = !canEditInvoice(invForm);

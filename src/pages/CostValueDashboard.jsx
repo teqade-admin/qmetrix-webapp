@@ -8,8 +8,7 @@ import { DollarSign, TrendingUp, TrendingDown, Target, AlertTriangle } from "luc
 import StatCard from "@/components/shared/StatCard";
 import { Progress } from "@/components/ui/progress";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
-import { grossMargin } from "@/lib/financeMetrics";
-import { isOutstanding } from "@/lib/invoiceLifecycle";
+import { grossMargin, totalInvoiced as sumInvoiced, totalPaid as sumPaid, totalOutstanding, totalFeeAgreed, invoicedForProject } from "@/lib/financeMetrics";
 import { costBearingExpenses } from "@/lib/expenseLifecycle";
 
 export default function CostValueDashboard() {
@@ -22,26 +21,25 @@ export default function CostValueDashboard() {
   const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: () => base44.entities.Employee.list() });
 
   const activeProjects = projects.filter(p => p.status !== "closed");
-  const totalFeeAgreed = projects.reduce((s, p) => s + (p.fee_agreed || 0), 0);
-  const totalInvoiced = invoices.reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const totalPaid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+  const feeAgreed = totalFeeAgreed(projects);
+  const totalInvoiced = sumInvoiced(invoices);
+  const totalPaid = sumPaid(invoices);
   const totalCosts = costBearingExpenses(expenses).reduce((s, e) => s + (e.amount || 0), 0);
-  const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+  const outstanding = totalOutstanding(invoices);
   // Shared definition — see lib/financeMetrics. Must match the Dashboard.
   const margin = grossMargin(projects, expenses);
 
   // Calculate earned value per project
   const projectMetrics = activeProjects.map(p => {
     const feeAgreed = p.fee_agreed || 0;
-    const feeInvoiced = p.fee_invoiced || 0;
     const costToDate = p.cost_to_date || 0;
     const progress = (p.progress_percent || 0) / 100;
     const earnedValue = feeAgreed * progress;
     const variance = earnedValue - costToDate;
     const projectInvoices = invoices.filter(i => i.project_name === p.name);
-    const paid = projectInvoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+    const paid = sumPaid(projectInvoices);
     const projectMargin = feeAgreed > 0 ? ((feeAgreed - costToDate) / feeAgreed * 100) : null;
-    return { ...p, earnedValue, variance, paid, projectMargin, invoiceCount: projectInvoices.length };
+    return { ...p, earnedValue, variance, paid, projectMargin, invoiced: invoicedForProject(invoices, p.name), invoiceCount: projectInvoices.length };
   });
 
   // Chart data for Fee vs Cost vs Invoiced
@@ -49,7 +47,7 @@ export default function CostValueDashboard() {
     name: (p.name || "").substring(0, 12),
     fee: p.fee_agreed || 0,
     cost: p.cost_to_date || 0,
-    invoiced: p.fee_invoiced || 0,
+    invoiced: p.invoiced,
     earned: Math.round(p.earnedValue),
   }));
 
@@ -65,7 +63,7 @@ export default function CostValueDashboard() {
       <div><h1 className="font-bold text-xl">Cost & Value Monitoring</h1><p className="text-sm text-muted-foreground">Earned value, profitability, variance analysis across all projects</p></div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard title="Fee Agreed" value={`${currency.symbol}${(totalFeeAgreed/1000).toFixed(0)}k`} icon={Target} color="primary" />
+        <StatCard title="Fee Agreed" value={`${currency.symbol}${(feeAgreed/1000).toFixed(0)}k`} icon={Target} color="primary" />
         <StatCard title="Total Invoiced" value={`${currency.symbol}${(totalInvoiced/1000).toFixed(0)}k`} icon={DollarSign} color="blue" />
         <StatCard title="Received" value={`${currency.symbol}${(totalPaid/1000).toFixed(0)}k`} icon={TrendingUp} color="green" />
         <StatCard title="Outstanding" value={`${currency.symbol}${(outstanding/1000).toFixed(0)}k`} icon={AlertTriangle} color={outstanding > 0 ? "red" : "green"} />

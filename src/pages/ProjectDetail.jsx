@@ -27,6 +27,7 @@ import { projectProgress, stageLabel } from "@/lib/projectProgress";
 import { describeChanges } from "@/lib/auditScope";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { format, parseISO } from "date-fns";
+import { invoicedForProject } from "@/lib/financeMetrics";
 
 export default function ProjectDetail() {
   const { projectRef } = useParams();
@@ -47,6 +48,14 @@ export default function ProjectDetail() {
   const { data: employees = [] } = useQuery({
     queryKey: ["employees"], queryFn: () => base44.entities.Employee.list(),
   });
+  // Fee Invoiced comes from the invoices raised against this project, not from
+  // a number typed onto the project. The typed one had drifted well away from
+  // the invoices it was meant to summarise.
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: () => base44.entities.Invoice.list()
+  });
+
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["audit_logs"], queryFn: () => base44.entities.AuditLog.list("-occurred_at"),
   });
@@ -281,7 +290,7 @@ export default function ProjectDetail() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               <div><p className="text-xs text-muted-foreground">Project Value</p><p className="font-medium">{formatMoney(project.project_value || 0, currency)}</p></div>
               <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">{formatMoney(project.fee_agreed || 0, currency)}</p></div>
-              <div><p className="text-xs text-muted-foreground">Fee Invoiced</p><p className="font-medium">{formatMoney(project.fee_invoiced || 0, currency)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Fee Invoiced</p><p className="font-medium">{formatMoney(invoicedForProject(invoices, project.name), currency)}</p></div>
               <div><p className="text-xs text-muted-foreground">Cost to Date</p><p className="font-medium">{formatMoney(project.cost_to_date || 0, currency)}</p></div>
             </div>
           </Card>

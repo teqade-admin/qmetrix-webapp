@@ -19,6 +19,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import StatCard from "@/components/shared/StatCard";
 import EmptyState from "@/components/shared/EmptyState";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
+import { totalFeeAgreed, totalInvoiced as sumInvoiced } from "@/lib/financeMetrics";
 
 const STATUSES = ["kick_off","feasibility","design","pre_construction","construction","post_completion","closed"];
 
@@ -59,6 +60,16 @@ export default function Projects() {
     queryKey: ["work_sections"],
     queryFn: () => base44.entities.WorkSection.list()
   });
+
+  // "Total Invoiced" used to add up projects.fee_invoiced, a figure typed onto
+  // the project rather than taken from the invoices themselves. It read AED
+  // 7,270,000 against AED 3,789,000 of actual invoices — two screens, both
+  // labelled Invoiced, disagreeing by more than the smaller of them. It now
+  // comes from the invoice records, like every other screen.
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: () => base44.entities.Invoice.list()
+  });
   const sectionsByProject = React.useMemo(() => {
     const map = new Map();
     for (const s of allSections) {
@@ -92,8 +103,8 @@ export default function Projects() {
   const pager = usePagination(filtered, 9);
 
   const activeProjects = projects.filter(p => p.status !== "closed");
-  const totalFee = projects.reduce((s, p) => s + (p.fee_agreed || 0), 0);
-  const totalInvoiced = projects.reduce((s, p) => s + (p.fee_invoiced || 0), 0);
+  const totalFee = totalFeeAgreed(projects);
+  const totalInvoiced = sumInvoiced(invoices);
   // Average only over projects that have measurable progress, so projects
   // without work sections don't drag the figure down to 0%.
   const measured = projects.filter(p => p.progress_percent != null);

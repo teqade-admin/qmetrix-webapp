@@ -26,8 +26,19 @@ export const earnedValue = (projects) =>
 export const totalCost = (projects, expenses) =>
   sum(projects, (p) => p?.cost_to_date) + sum(costBearingExpenses(expenses), (e) => e?.amount);
 
+/** Everything billed to clients. A cancelled invoice was never billed. */
 export const totalInvoiced = (invoices) =>
   sum((invoices || []).filter((i) => i?.status !== "cancelled"), invoiceValue);
+
+/** The same, for one project — the Projects and Cost & Value per-row figures. */
+export const invoicedForProject = (invoices, projectName) =>
+  totalInvoiced((invoices || []).filter((i) => i?.project_name === projectName));
+
+/** Total value of the work the company has agreed to do. */
+export const totalFeeAgreed = (projects) => sum(projects, (p) => p?.fee_agreed);
+
+/** Delivery cost booked against projects, before expense claims. */
+export const totalProjectCost = (projects) => sum(projects, (p) => p?.cost_to_date);
 
 export const totalPaid = (invoices) =>
   sum((invoices || []).filter((i) => i?.status === "paid"), invoiceValue);

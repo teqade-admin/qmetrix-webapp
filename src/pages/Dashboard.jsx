@@ -13,10 +13,10 @@ import { Progress } from "@/components/ui/progress";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import { useAuth } from "@/lib/AuthContext";
 import { canRead } from "@/lib/permissions";
-import { grossMargin } from "@/lib/financeMetrics";
+import { grossMargin, totalPaid as sumPaid, totalOutstanding, totalFeeAgreed, totalProjectCost } from "@/lib/financeMetrics";
 import { supabase } from "@/lib/supabase";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { isOutstanding, isOverdue } from "@/lib/invoiceLifecycle";
+import { isOverdue } from "@/lib/invoiceLifecycle";
 
 const COLORS = ["#1e3a5f", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#06b6d4", "#f97316"];
 
@@ -39,8 +39,8 @@ export default function Dashboard() {
   const activeBids = bids.filter(b => ["draft", "in_progress", "submitted"].includes(b.status)).length;
   const pipelineValue = bids.filter(b => ["submitted", "in_progress"].includes(b.status)).reduce((s, b) => s + (b.fee_proposal || 0), 0);
   const activeProjects = projects.filter(p => !["closed"].includes(p.status)).length;
-  const totalRevenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
-  const outstanding = invoices.filter(i => isOutstanding(i)).reduce((s, i) => s + (i.total_amount || i.amount || 0), 0);
+  const totalRevenue = sumPaid(invoices);
+  const outstanding = totalOutstanding(invoices);
   const overdueInvoices = invoices.filter(i => isOverdue(i));
 
   // Resource utilization
@@ -69,8 +69,8 @@ export default function Dashboard() {
   })).filter(d => d.value > 0);
 
   // Financial summary
-  const totalFeeAgreed = projects.reduce((s, p) => s + (p.fee_agreed || 0), 0);
-  const totalCosts = projects.reduce((s, p) => s + (p.cost_to_date || 0), 0);
+  const feeAgreed = totalFeeAgreed(projects);
+  const totalCosts = totalProjectCost(projects);
   // Shared definition — see lib/financeMetrics. Must match Cost & Value.
   const grossMarginPct = grossMargin(projects, expenses);
 
@@ -228,17 +228,17 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
             <div>
-              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Fee Agreed</span><span className="font-semibold">{currency.symbol}{(totalFeeAgreed/1000).toFixed(0)}k</span></div>
+              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Fee Agreed</span><span className="font-semibold">{currency.symbol}{(feeAgreed/1000).toFixed(0)}k</span></div>
               <Progress value={100} className="h-2" />
             </div>
             <div>
               {/* totalRevenue counts paid invoices only — labelling it "Invoiced" overstated collections. */}
               <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Paid</span><span className="font-semibold">{currency.symbol}{(totalRevenue/1000).toFixed(0)}k</span></div>
-              <Progress value={totalFeeAgreed > 0 ? (totalRevenue / totalFeeAgreed) * 100 : 0} className="h-2" />
+              <Progress value={feeAgreed > 0 ? (totalRevenue / feeAgreed) * 100 : 0} className="h-2" />
             </div>
             <div>
               <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Cost to Date</span><span className="font-semibold">{currency.symbol}{(totalCosts/1000).toFixed(0)}k</span></div>
-              <Progress value={totalFeeAgreed > 0 ? (totalCosts / totalFeeAgreed) * 100 : 0} className="h-2" />
+              <Progress value={feeAgreed > 0 ? (totalCosts / feeAgreed) * 100 : 0} className="h-2" />
             </div>
             <div className="pt-2 border-t">
               <div className="flex justify-between text-xs">
@@ -250,7 +250,7 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Outstanding</span><span className="font-semibold text-amber-600">{currency.symbol}{(outstanding/1000).toFixed(0)}k</span></div>
-              <Progress value={totalFeeAgreed > 0 ? (outstanding / totalFeeAgreed) * 100 : 0} className="h-2" />
+              <Progress value={feeAgreed > 0 ? (outstanding / feeAgreed) * 100 : 0} className="h-2" />
             </div>
           </CardContent>
         </Card>}
