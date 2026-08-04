@@ -11,13 +11,13 @@ at https://teqade-admin.github.io/qmetrix-webapp/
 
 | Status | Count |
 |---|---|
-| ✅ Done | 30 |
+| ✅ Done | 31 |
 | 🟡 Partly done | 1 |
 | ⏸️ Not doing (agreed) | 1 |
-| ⬜ Not started | 5 |
+| ⬜ Not started | 4 |
 
-Of the five not started, three are new modules that need scoping with you
-(User Management, Reports, Recruitment). The other two are set out at the end.
+Of the four not started, three are new modules that need scoping with you
+(User Management, Reports, Recruitment). The fourth is set out at the end.
 
 ---
 
@@ -100,7 +100,7 @@ Of the five not started, three are new modules that need scoping with you
 | Gross Margin reported as two contradictory numbers: −442.2% on Dashboard vs 99.1% in Cost & Value | ✅ | The two screens used the same revenue figure but different cost bases — one counted project costs, the other expense claims. Both now use a single definition, the value of work done less the cost of doing it, and report **47.7%**. |
 | Onboarding can fail to create a login account, leaving a new hire unable to sign in | ✅ | The message shown was a generic wrapper and the real reason was being discarded. HR now sees what actually failed, and each Onboarding card has a **Create login** button to retry. |
 | Notification bell non-functional on every role | ✅ | The bell now shows what is awaiting you — timesheets and leave to approve, deliverables where you own the next sign-off, and overdue invoices — each linking to the relevant page. |
-| Invoice # field cannot be manually overridden | ⬜ | **Not changed, and we would welcome your view.** The field is deliberately read-only so the sequence stays gapless and unique, which matters for a financial record. Allowing an override needs an agreed rule for duplicates and for what happens to the automatic sequence afterwards. |
+| Invoice # field cannot be manually overridden | ✅ | The number is now editable — but only while the invoice is a draft, and it is checked against existing invoices so two can never share one. Once the invoice is sent it becomes fixed, since it is by then the client's reference for the payment. This came with a wider change to how an invoice progresses: status was a free choice of five values, so an invoice could be marked paid without ever being sent. It now follows **Draft → Sent → Paid**, one step at a time, with a single button offering the next step. **Overdue is automatic** — derived from the due date, so an invoice becomes overdue on the day it falls due and stops being overdue as soon as it is paid. Editing of any field is likewise a draft-only privilege; a sent invoice opens as a record to read, not a form to change. |
 | Expense approvals re-sort the list, so a second click can action the wrong expense | ✅ | Two causes addressed. The approve control was a receipt icon that read as "view document", so a click meant to inspect silently approved the expense — it is now a tick. Separately, list ordering had no tiebreaker, so rows could come back in a different order after a refresh; every list now orders deterministically. |
 | Many actions give no confirmation | ✅ | Every action now confirms — green for success, red for failure — naming what happened ("Timesheet approved", "Expense approved"). Confirmations clear on their own, and the close button works. |
 | Start Date and other wizard fields not persisted | ✅ | We audited all 21 fields the onboarding wizard collects, and every one saves correctly. Three genuine faults were found and fixed in the process: a stored value of 0 displayed as blank, and clearing a rate, salary or manager silently kept the previous value. |
@@ -117,9 +117,8 @@ and **Recruitment / Applicant Tracking**.
 **Small, ready when you are** — onboarding wizard step validation, and finishing
 the consolidation of financial subtotals.
 
-**Awaiting your decision** — whether the invoice number should be manually
-overridable, and whether HR User should be prevented from *seeing* salary as
-well as editing it.
+**Awaiting your decision** — whether HR User should be prevented from *seeing*
+salary as well as editing it.
 
 **Agreed not to do** — restricting cross-department admin role assignment.
 
