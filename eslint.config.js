@@ -41,6 +41,12 @@ export default [
       // A component used without being imported builds fine and only fails in
       // the browser ("X is not defined"), so lint has to be what catches it.
       "react/jsx-no-undef": "error",
+      // Same class of bug for values rather than components: reading a const
+      // before its declaration is a temporal dead zone error at render, which
+      // the build cannot see. This caught the project page failing to mount.
+      "no-use-before-define": ["error", { functions: false, classes: false, variables: true }],
+      // And a hook or helper used without being imported.
+      "no-undef": "error",
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
         "warn",

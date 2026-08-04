@@ -92,19 +92,6 @@ export default function Finance() {
   const invPager = usePagination(filteredInvoices, 10);
   const expPager = usePagination(filteredExpenses, 10);
 
-  const downloadInvoicePdf = async (invoice) => {
-    try {
-      await buildInvoicePdf(invoice);
-      toast({ variant: "success", title: `Invoice ${invoice.invoice_number} downloaded` });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Could not generate the PDF",
-        description: err?.message || "Unknown error",
-      });
-    }
-  };
-
   const buildInvoicePdf = async (invoice) => {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -188,6 +175,20 @@ export default function Finance() {
 
     doc.save(`invoice-${invoice.invoice_number || invoice.id}.pdf`);
   };
+
+  const downloadInvoicePdf = async (invoice) => {
+    try {
+      await buildInvoicePdf(invoice);
+      toast({ variant: "success", title: `Invoice ${invoice.invoice_number} downloaded` });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Could not generate the PDF",
+        description: err?.message || "Unknown error",
+      });
+    }
+  };
+
 
   return (
     <div className="space-y-4">

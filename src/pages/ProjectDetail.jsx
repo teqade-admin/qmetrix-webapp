@@ -32,16 +32,6 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const { currency } = useCurrency();
   const { user, userRole } = useAuth();
-  // The creator owns the project; the manager may edit but not delete, since
-  // deleting takes the work sections with it.
-  const me = React.useMemo(() => {
-    if (!user) return null;
-    const fullName = user?.user_metadata?.full_name;
-    return employees.find(e => e.user_id && e.user_id === user.id)
-      || employees.find(e => e.email && e.email.toLowerCase() === (user.email || "").toLowerCase())
-      || employees.find(e => fullName && e.full_name === fullName)
-      || null;
-  }, [user, employees]);
   const queryClient = useQueryClient();
 
   const { data: projects = [], isLoading } = useQuery({
@@ -59,6 +49,17 @@ export default function ProjectDetail() {
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["audit_logs"], queryFn: () => base44.entities.AuditLog.list("-occurred_at"),
   });
+
+  // The creator owns the project; the manager may edit but not delete, since
+  // deleting takes the work sections with it.
+  const me = React.useMemo(() => {
+    if (!user) return null;
+    const fullName = user?.user_metadata?.full_name;
+    return employees.find(e => e.user_id && e.user_id === user.id)
+      || employees.find(e => e.email && e.email.toLowerCase() === (user.email || "").toLowerCase())
+      || employees.find(e => fullName && e.full_name === fullName)
+      || null;
+  }, [user, employees]);
   const [editOpen, setEditOpen] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
 
