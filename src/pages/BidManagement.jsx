@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Search, Pencil, Trash2, Rocket, Plus, UserPlus, ChevronLeft, Check } from "lucide-react";
+import { Search, Pencil, Trash2, Rocket, Plus, UserPlus, ChevronLeft, Check, FolderKanban } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import FeeCalculator from "@/components/bids/FeeCalculator";
 import KickOffProjectDialog from "@/components/bids/KickOffProjectDialog";
 import ClientFormDialog from "@/components/bids/ClientFormDialog";
@@ -85,13 +87,23 @@ export default function BidManagement() {
   const updateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Bid.update(id, data), meta: { successMessage: (_r, v) => v?.toastMessage || "Bid updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDialogOpen(false); setEditingBid(null); } });
   const deleteMut = useMutation({ mutationFn: id => base44.entities.Bid.delete(id), meta: { successMessage: "Bid deleted" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bids"] }); setDeleteId(null); } });
 
+  // Resolve the project a won bid opened, so it can be shown instead of
+  // offering to kick it off a second time.
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => base44.entities.Project.list(),
+  });
+  const projectById = React.useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
+
   const clientCreateMut = useMutation({ mutationFn: d => base44.entities.Client.create(d), meta: { successMessage: "Client onboarded" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientFormOpen(false); setEditingClient(null); } });
   const clientUpdateMut = useMutation({ mutationFn: ({ id, data }) => base44.entities.Client.update(id, data), meta: { successMessage: "Client updated" }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["clients"] }); setClientFormOpen(false); setEditingClient(null); } });
 
   const kickOffMut = useMutation({
     mutationFn: async ({ bidId, projectData, bidUpdateData }) => {
-      const project = await base44.entities.Project.create(projectData);
-      const bidUpdates = { status: "won", ...bidUpdateData };
+      // Record the link in both directions so the project keeps its provenance
+      // and the bid can be compared against what delivery actually cost.
+      const project = await base44.entities.Project.create({ ...projectData, bid_id: bidId });
+      const bidUpdates = { status: "won", ...bidUpdateData, project_id: project.id };
       await base44.entities.Bid.update(bidId, sanitizeBidUpdatePayload(bidUpdates));
       return project;
     },
@@ -279,11 +291,24 @@ export default function BidManagement() {
                         <td className="p-3"><StatusBadge status={bid.status} /></td>
                         <td className="p-3" onClick={e => e.stopPropagation()}>
                           <div className="flex gap-1 items-center">
-                            {bid.status === "won" && (
+                            {/* Once a bid has opened a project, show that instead of
+                                offering to kick off again and create a duplicate. */}
+                            {bid.status === "won" && (bid.project_id ? (
+                              <Link
+                                to={createPageUrl("Projects")}
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                title={`Opened project: ${projectById.get(bid.project_id)?.name || "view"}`}
+                              >
+                                <FolderKanban className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline max-w-[120px] truncate">
+                                  {projectById.get(bid.project_id)?.name || "Project"}
+                                </span>
+                              </Link>
+                            ) : (
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Kick Off Project" onClick={() => setKickOffBid(bid)}>
                                 <Rocket className="h-3.5 w-3.5" />
                               </Button>
-                            )}
+                            ))}
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditBid(bid)}><Pencil className="h-3.5 w-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(bid.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </div>

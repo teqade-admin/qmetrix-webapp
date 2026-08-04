@@ -71,6 +71,13 @@ export default function Projects() {
     queryFn: () => base44.entities.Employee.list()
   });
 
+  // Provenance: the bid this project was won from, if any.
+  const { data: bids = [] } = useQuery({
+    queryKey: ["bids"],
+    queryFn: () => base44.entities.Bid.list()
+  });
+  const bidById = React.useMemo(() => new Map(bids.map(b => [b.id, b])), [bids]);
+
   const createMut = useMutation({
     mutationFn: d => base44.entities.Project.create(d),
     meta: { successMessage: "Project created" },
@@ -297,6 +304,35 @@ export default function Projects() {
                     </TabsContent>
 
                     <TabsContent value="financials" className="mt-3">
+                      {/* Where the work came from, and how the winning bid compares
+                          with what was actually agreed and spent. */}
+                      {(() => {
+                        const bid = project.bid_id ? bidById.get(project.bid_id) : null;
+                        if (!bid) return null;
+                        const proposed = bid.fee_proposal || 0;
+                        const agreed = project.fee_agreed || 0;
+                        const spent = project.cost_to_date || 0;
+                        const variance = proposed > 0 ? ((agreed - proposed) / proposed) * 100 : null;
+                        return (
+                          <div className="mb-3 rounded-lg border bg-muted/20 p-3">
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Won from bid <span className="font-medium text-foreground">{bid.title}</span>
+                              {bid.client_name ? ` · ${bid.client_name}` : ""}
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                              <div><p className="text-xs text-muted-foreground">Fee Proposed</p><p className="font-medium">{formatMoney(proposed, currency)}</p></div>
+                              <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">{formatMoney(agreed, currency)}</p></div>
+                              <div><p className="text-xs text-muted-foreground">Cost to Date</p><p className="font-medium">{formatMoney(spent, currency)}</p></div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Agreed vs Proposed</p>
+                                <p className={`font-medium ${variance == null ? "" : variance < 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                                  {variance == null ? "—" : `${variance > 0 ? "+" : ""}${variance.toFixed(1)}%`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                         <div><p className="text-xs text-muted-foreground">Project Value</p><p className="font-medium">{formatMoney(project.project_value || 0, currency)}</p></div>
                         <div><p className="text-xs text-muted-foreground">Fee Agreed</p><p className="font-medium">{formatMoney(project.fee_agreed || 0, currency)}</p></div>
