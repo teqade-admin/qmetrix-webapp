@@ -501,11 +501,17 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
                   onValueChange={v => {
                     if (v === NO_WORK_SECTION) return setForm(f => ({ ...f, work_section_id: "" }));
                     const ws = myWorkSections.find(w => w.id === v);
+                    // Carry across what the assignment already says, so the
+                    // entry doesn't have to be retyped. Anything already filled
+                    // in is left alone — the person logging knows better.
                     setForm(f => ({
                       ...f,
                       work_section_id: v,
                       project_name: projectNameById.get(ws?.project_id) || f.project_name,
                       task_description: f.task_description || ws?.title || "",
+                      hours: f.hours !== "" && f.hours != null
+                        ? f.hours
+                        : (ws?.planned_hours ?? ""),
                     }));
                   }}
                 >
@@ -519,9 +525,13 @@ export default function TimesheetView({ scope = "self", currentEmployeeName = ""
                     ))}
                   </SelectContent>
                 </Select>
-                {myWorkSections.length === 0 && (
+                {myWorkSections.length === 0 ? (
                   <p className="text-[11px] text-muted-foreground">No work is assigned to you yet.</p>
-                )}
+                ) : form.work_section_id ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Project and hours are filled in from the assignment — adjust them if this entry covers only part of it.
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Project *</Label>

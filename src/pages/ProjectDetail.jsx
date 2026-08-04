@@ -3,16 +3,20 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
-import { canWrite } from "@/lib/permissions";
+import { canWrite, canDelete } from "@/lib/permissions";
 import { createPageUrl } from "@/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FolderKanban, Pencil } from "lucide-react";
+import { ArrowLeft, FolderKanban, Pencil, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCurrency, formatMoney } from "@/components/shared/CurrencyContext";
 import StageTree from "@/components/projects/StageTree";
 import WorkSectionsTracker from "@/components/projects/WorkSectionsTracker";
@@ -26,6 +30,7 @@ export default function ProjectDetail() {
   const { currency } = useCurrency();
   const { userRole } = useAuth();
   const canEdit = canWrite(userRole, "Projects");
+  const canRemove = canDelete(userRole, "Projects");
   const queryClient = useQueryClient();
 
   const { data: projects = [], isLoading } = useQuery({
@@ -41,6 +46,7 @@ export default function ProjectDetail() {
     queryKey: ["employees"], queryFn: () => base44.entities.Employee.list(),
   });
   const [editOpen, setEditOpen] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
 
   const project = projects.find(p => p.id === projectId) || null;
   const sections = useMemo(
@@ -53,6 +59,14 @@ export default function ProjectDetail() {
     mutationFn: ({ id, data }) => base44.entities.Project.update(id, data),
     meta: { successMessage: (_r, v) => v?.toastMessage || "Project updated" },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id) => base44.entities.Project.delete(id),
+    meta: { successMessage: "Project deleted" },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      navigate(createPageUrl("Projects"));
+    },
   });
 
   if (isLoading) {
@@ -101,6 +115,11 @@ export default function ProjectDetail() {
             {canEdit && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-3.5 w-3.5" />Edit
+              </Button>
+            )}
+            {canRemove && (
+              <Button variant="outline" size="sm" className="gap-1.5 text-destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-3.5 w-3.5" />Delete
               </Button>
             )}
             <StatusBadge status={project.status} />
@@ -231,6 +250,28 @@ export default function ProjectDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {project.name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Its {sections.length} work section{sections.length === 1 ? "" : "s"} go with it.
+              Deliverables, milestones and invoices that reference the project by name stay,
+              but will no longer resolve to it. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep project</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground"
+              onClick={() => deleteMut.mutate(project.id)}
+            >
+              Delete project
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ProjectFormDialog
         open={editOpen}

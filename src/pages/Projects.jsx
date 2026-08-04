@@ -2,19 +2,14 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
-import { canWrite, canDelete } from "@/lib/permissions";
+import { canWrite } from "@/lib/permissions";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
-} from "@/components/ui/alert-dialog";
-import { Pencil, Trash2, Search, FolderKanban, TrendingUp, DollarSign, ChevronRight } from "lucide-react";
+import { Search, FolderKanban, TrendingUp, DollarSign, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ProjectFormDialog from "@/components/projects/ProjectFormDialog";
 import { createPageUrl } from "@/utils";
@@ -31,12 +26,9 @@ export default function Projects() {
   const { currency } = useCurrency();
   const { userRole } = useAuth();
   const canEdit = canWrite(userRole, "Projects");
-  const canRemove = canDelete(userRole, "Projects");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -76,20 +68,7 @@ export default function Projects() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDialogOpen(false); }
   });
 
-  const updateMut = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Project.update(id, data),
-    meta: { successMessage: (_r, v) => v?.toastMessage || "Project updated" },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDialogOpen(false); setEditing(null); }
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: id => base44.entities.Project.delete(id),
-    meta: { successMessage: "Project deleted" },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["projects"] }); setDeleteId(null); }
-  });
-
-  const openNew = () => { setEditing(null); setDialogOpen(true); };
-  const openEdit = p => { setEditing(p); setDialogOpen(true); };
+  const openNew = () => setDialogOpen(true);
 
   const filtered = projects.filter(p => {
     const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.client_name?.toLowerCase().includes(search.toLowerCase());
@@ -183,8 +162,6 @@ export default function Projects() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={e => { e.stopPropagation(); openEdit(project); }}><Pencil className="h-3.5 w-3.5" /></Button>}
-                  {canRemove && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={e => { e.stopPropagation(); setDeleteId(project.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
@@ -198,30 +175,14 @@ export default function Projects() {
       <ProjectFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        project={editing}
-        sections={sectionsFor(editing?.id)}
+        project={null}
+        sections={[]}
         projects={projects}
         employees={employees}
-        saving={createMut.isPending || updateMut.isPending}
-        onSave={(data) => {
-          if (editing) {
-            const { id, created_at, updated_at, created_date, updated_date, ...rest } = data;
-            updateMut.mutate({ id: editing.id, data: rest });
-          } else {
-            createMut.mutate(data);
-          }
-        }}
+        saving={createMut.isPending}
+        onSave={(data) => createMut.mutate(data)}
       />
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Delete Project</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteMut.mutate(deleteId)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
